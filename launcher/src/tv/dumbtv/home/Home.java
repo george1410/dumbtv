@@ -754,8 +754,9 @@ public final class Home extends Activity {
                 if (direction == View.FOCUS_DOWN && (chips.contains(focused) || focused == hero)) {
                     if (nowStrip != null && nowStrip.getVisibility() == View.VISIBLE
                             && nowStrip.getChildCount() > 0) {
-                        View now = nearest(nowStrip, focused);
-                        if (now != null) return now;
+                        // First card, not the nearest: the gear sits on the right, and landing
+                        // on the last visible On Now card scrolls the row to centre it.
+                        return nowStrip.getChildAt(0);
                     }
                     View remembered = rememberedTile(lastFocusedKind);
                     if (remembered != null) return remembered;
@@ -784,10 +785,7 @@ public final class Home extends Activity {
                     ViewGroup parent = (ViewGroup) focused.getParent();
                     boolean firstLine = !(parent instanceof Grid)
                             || !aboveInGrid(parent, (Tile) focused);
-                    if (firstLine) {
-                        View now = nearest(nowStrip, focused);
-                        if (now != null) return now;
-                    }
+                    if (firstLine) return nowStrip.getChildAt(0);
                 }
                 if (focused instanceof Tile
                         && focused.getParent() instanceof ViewGroup) {
