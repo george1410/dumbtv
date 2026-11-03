@@ -61,7 +61,7 @@ else
   PRIME=0; note "prime: its servers are blocked, so it will not play"
 fi
 ALEXA=$(answer "$ALEXA_ARG" "Keep Alexa and the remote's voice button? (no = Alexa and the microphone app are switched off)" 1)
-LAUNCHER=$(answer "$LAUNCHER_ARG" "Replace Amazon's home screen with dumbtv home (open source, no ads, internet only for its Live TV guide)?" 1)
+LAUNCHER=$(answer "$LAUNCHER_ARG" "Replace Amazon's home screen with dumbtv home (open source, no ads, internet only for its Live TV guide and weather)?" 1)
 DNSFILTER=$(answer "$DNSFILTER_ARG" "Run the DNS filter on the TV (blocks Amazon telemetry and stops automatic updates)?" 1)
 SYSTEM_DNS=$(answer "$SYSTEM_DNS_ARG" "Fire OS 6 only: let system apps bypass the filter so the clock syncs? Amazon's system-user apps go unfiltered too" 0)
 # Default no: YouTube is the app people actually watch. scripts/youtube.sh is the

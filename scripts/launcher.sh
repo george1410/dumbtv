@@ -18,7 +18,7 @@ fi
 PKG=tv.dumbtv.home
 
 step "plan"
-note "install dumbtv home: open source, no ad ID, internet only for the Live TV guide"
+note "install dumbtv home: open source, no ad ID, internet only for the Live TV guide and weather"
 note "the prebuilt APK comes from this repo's GitHub release and is checksum-verified"
 if [[ $SDK -lt 28 ]]; then
   note "take over HOME: Keeper (UsageStats + moveTaskToFront, no accessibility)"

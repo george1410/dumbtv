@@ -8,13 +8,14 @@ A home screen for Fire TV that does one job: show your apps and your HDMI inputs
 
 - **107 KB.** Plain Java and Android views. No AndroidX, Kotlin, Compose, Play
   Services or any other library.
-- **One network request.** The Live TV guide downloads UK listings from
-  `epgtalk.com/api/now/uk.json` while it is open, at most every 90 minutes. Nothing
-  is sent except that request; the home screen itself makes none.
-- **`INTERNET` and run-at-startup on Fire OS 7 and 8.** The first is the guide;
-  the second restarts the DNS filter when Android kills it (on HOME, at boot and
-  every 15 minutes). Fire OS 6 also has usage access and task order for the Keeper
-  below, both limited to Android 8.1 and earlier. Check: `aapt2 dump permissions dumbtv-home.apk`.
+- **Two network requests.** The Live TV guide downloads UK listings from
+  `epgtalk.com/api/now/uk.json` while it is open, at most every 90 minutes. Weather
+  is Open-Meteo, with a one-shot IP lookup for coordinates, then the forecast every
+  30 minutes. Nothing else is sent.
+- **`INTERNET` and run-at-startup on Fire OS 7 and 8.** The first is the guide and
+  weather; the second restarts the DNS filter when Android kills it (on HOME, at
+  boot and every 15 minutes). Fire OS 6 also has usage access and task order for
+  the Keeper below, both limited to Android 8.1 and earlier. Check: `aapt2 dump permissions dumbtv-home.apk`.
 - **Live TV.** A now-and-next guide for BBC iPlayer, ITVX, Channel 4, My5 and NOW.
   OK opens the channel live in its app; 5Star, 5Action and 5USA open My5 instead.
   NOW channels use an explicit VIEW on AmazonMainActivity with Sky's HD serviceKey.

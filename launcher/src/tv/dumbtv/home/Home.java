@@ -7,6 +7,7 @@ import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
@@ -81,10 +82,13 @@ public final class Home extends Activity {
     private LinearLayout head, nowStrip, liveCard;
     private ImageView smartHome;
     private View nowBlock;
-    private TextView clock, date, nowHeading;
+    private TextView clock, date, weatherView, nowHeading;
+    private LinearLayout weatherRow;
+    private ImageView weatherIcon;
     private Meter meter;
     private Epg epg = Epg.EMPTY;
-    private boolean epgLoading;
+    private Weather weather = Weather.EMPTY;
+    private boolean epgLoading, weatherLoading;
     private Row apps, allApps, inputs;
     private Hero hero;
     private int libraryGeneration;
@@ -422,6 +426,7 @@ public final class Home extends Activity {
         registerReceiver(time, f);
         tick();
         loadEpg();
+        loadWeather();
     }
 
     @Override
@@ -868,12 +873,32 @@ public final class Home extends Activity {
         LinearLayout timeRow = new LinearLayout(this);
         timeRow.setOrientation(LinearLayout.HORIZONTAL);
         clock = Ui.text(this, 56, Ui.TEXT, Ui.LIGHT);
+        LinearLayout meta = new LinearLayout(this);
+        meta.setOrientation(LinearLayout.VERTICAL);
+        weatherRow = new LinearLayout(this);
+        weatherRow.setOrientation(LinearLayout.HORIZONTAL);
+        weatherRow.setGravity(Gravity.CENTER_VERTICAL);
+        weatherRow.setPadding(0, 0, 0, dp(4));
+        weatherRow.setVisibility(View.GONE);
+        weatherIcon = new ImageView(this);
+        weatherIcon.setImageTintList(ColorStateList.valueOf(Ui.MUTED));
+        weatherIcon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        LinearLayout.LayoutParams iconLp = new LinearLayout.LayoutParams(dp(16), dp(16));
+        iconLp.rightMargin = dp(6);
+        weatherRow.addView(weatherIcon, iconLp);
+        weatherView = Ui.text(this, 14, Ui.MUTED, Ui.MEDIUM);
+        weatherView.setLetterSpacing(0.08f);
+        weatherRow.addView(weatherView);
         date = Ui.text(this, 14, Ui.MUTED, Ui.MEDIUM);
         date.setLetterSpacing(0.08f);
-        LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(WRAP, WRAP);
-        dateLp.leftMargin = dp(16);
+        meta.addView(weatherRow);
+        meta.addView(date);
+        // Date is child 1 so the row still baseline-aligns it with the clock.
+        meta.setBaselineAlignedChildIndex(1);
+        LinearLayout.LayoutParams metaLp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        metaLp.leftMargin = dp(16);
         timeRow.addView(clock);
-        timeRow.addView(date, dateLp);
+        timeRow.addView(meta, metaLp);
         when.addView(timeRow);
         meter = new Meter(this);
         meter.setWords(getString(R.string.meter_title), getString(R.string.meter_free),
@@ -1105,6 +1130,7 @@ public final class Home extends Activity {
         background();
         tick();
         loadEpg();
+        loadWeather();
     }
 
     private void fillNow() {
@@ -1159,6 +1185,65 @@ public final class Home extends Activity {
                 ui.post(() -> epgLoading = false);
             }
         });
+    }
+
+    private void loadWeather() {
+        if (weatherLoading) return;
+        weatherLoading = true;
+        io.execute(() -> {
+            Weather got = weather != Weather.EMPTY ? weather : Weather.cached(this);
+            final Weather cached = got;
+            ui.post(() -> {
+                weather = cached;
+                paintWeather();
+            });
+            if (!got.stale(System.currentTimeMillis())) {
+                ui.post(() -> weatherLoading = false);
+                return;
+            }
+            try {
+                final Weather fresh = Weather.fetch(this);
+                ui.post(() -> {
+                    weather = fresh;
+                    weatherLoading = false;
+                    paintWeather();
+                });
+            } catch (Exception e) {
+                ui.post(() -> weatherLoading = false);
+            }
+        });
+    }
+
+    private void paintWeather() {
+        if (weatherRow == null) return;
+        if (weather.line.isEmpty()) {
+            weatherRow.setVisibility(View.GONE);
+            return;
+        }
+        int glyph = weatherDrawable(Weather.icon(weather.code));
+        if (glyph == 0) {
+            weatherIcon.setVisibility(View.GONE);
+        } else {
+            weatherIcon.setImageResource(glyph);
+            weatherIcon.setVisibility(View.VISIBLE);
+        }
+        weatherView.setText(weather.line);
+        weatherRow.setVisibility(View.VISIBLE);
+    }
+
+    private static int weatherDrawable(int icon) {
+        switch (icon) {
+            case Weather.SUN: return R.drawable.weather_sun;
+            case Weather.PARTLY: return R.drawable.weather_partly;
+            case Weather.CLOUD: return R.drawable.weather_cloud;
+            case Weather.FOG: return R.drawable.weather_fog;
+            case Weather.DRIZZLE: return R.drawable.weather_drizzle;
+            case Weather.RAIN: return R.drawable.weather_rain;
+            case Weather.SNOW: return R.drawable.weather_snow;
+            case Weather.SHOWERS: return R.drawable.weather_showers;
+            case Weather.THUNDER: return R.drawable.weather_thunder;
+            default: return 0;
+        }
     }
 
     private Epg.Programme playing(Channels.Channel ch, long now) {
@@ -1535,12 +1620,14 @@ public final class Home extends Activity {
         }
         Locale locale = Locale.getDefault();
         date.setText(DateFormat.format(DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), now));
+        paintWeather();
         if (meter.getVisibility() == View.VISIBLE) {
             meter.update((android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE));
         }
         // hourly and time-of-day rotations change while the screen stays open; a no-op otherwise
         background();
         bindNow();
+        if (weather.stale(now.getTime())) loadWeather();
     }
 
     private void background() {

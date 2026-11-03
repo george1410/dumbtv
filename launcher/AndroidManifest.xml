@@ -15,7 +15,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REORDER_TASKS"
         android:maxSdkVersion="27" />
-    <!-- Live TV only: downloads the programme guide from epgtalk.com. -->
+    <!-- Live TV guide (epgtalk.com) and weather (Open-Meteo). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application

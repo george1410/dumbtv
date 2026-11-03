@@ -51,6 +51,9 @@ jobs:
             launcher/src/tv/dumbtv/home/Channels.java \
             launcher/src/tv/dumbtv/home/Config.java launcher/tests/EpgTest.java
           java -cp "/tmp/host:$jar" tv.dumbtv.home.EpgTest
+          javac -d /tmp/host -cp "$jar" launcher/src/tv/dumbtv/home/Weather.java \
+            launcher/tests/WeatherTest.java
+          java -cp "/tmp/host:$jar" tv.dumbtv.home.WeatherTest
           javac -d /tmp/host -cp "/tmp/host:$jar" launcher/src/tv/dumbtv/home/Recent.java \
             launcher/tests/RecentTest.java
           java -cp "/tmp/host:$jar" tv.dumbtv.home.RecentTest
@@ -69,7 +72,7 @@ jobs:
           [ "$min" = 25 ] || { echo "expected minSdkVersion 25, found $min"; exit 1; }
       - name: INTERNET and boot completed on Fire OS 7 and later
         run: |
-          # Allowed uncapped: RECEIVE_BOOT_COMPLETED (Filter.java) and INTERNET (Live TV guide).
+          # Allowed uncapped: RECEIVE_BOOT_COMPLETED (Filter.java) and INTERNET (Live TV and weather).
           # Fire OS 6's Keeper pair stays capped at sdk 27.
           dump=$("$ANDROID_HOME/build-tools/34.0.0/aapt2" dump permissions launcher/build/dumbtv-home.apk)
           echo "$dump"
