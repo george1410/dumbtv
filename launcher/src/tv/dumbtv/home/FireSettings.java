@@ -1,18 +1,23 @@
 package tv.dumbtv.home;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.provider.Settings;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * The Settings chip on Fire OS 6 (issue #77). Amazon's standalone settings page draws its first
- * row above the top of the screen there, so the chip opens a short list instead: the sections a
- * third-party app may start directly, then Amazon's own settings row for everything else.
+ * Opens the TV's settings from Options. On Fire OS 6 (issue #77) Amazon's standalone settings
+ * page draws its first row above the top of the screen, so a short list is shown instead: the
+ * sections a third-party app may start directly, then Amazon's own settings row for everything else.
  *
  * The sections are the intents Amazon's settings row sends (CardPushService in
  * com.amazon.tv.settings.v2), in its order. A section is listed only when its screen is installed,
@@ -49,7 +54,37 @@ final class FireSettings {
 
     private FireSettings() {}
 
-    /** True where the chip should open {@link #sections} rather than the TV's settings page. */
+    static void open(Activity a) {
+        Intent tvSettings = new Intent(Intent.ACTION_MAIN)
+                .addCategory("android.intent.category.LEANBACK_SETTINGS");
+        PackageManager pm = a.getPackageManager();
+        if (applies(pm, tvSettings)) {
+            List<Item> sections = sections(a);
+            CharSequence[] labels = new CharSequence[sections.size()];
+            for (int i = 0; i < labels.length; i++) labels[i] = sections.get(i).label;
+            new AlertDialog.Builder(a, Ui.DIALOG)
+                    .setTitle(R.string.settings)
+                    .setItems(labels, (d, which) -> {
+                        Item s = sections.get(which);
+                        if (Guard.AMAZON.equals(s.id)) Guard.pause();
+                        start(a, new Intent(s.intent));
+                    })
+                    .show();
+            return;
+        }
+        boolean found = tvSettings.resolveActivity(pm) != null;
+        start(a, found ? tvSettings : new Intent(Settings.ACTION_SETTINGS));
+    }
+
+    private static void start(Activity a, Intent i) {
+        try {
+            a.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED));
+        } catch (ActivityNotFoundException | SecurityException e) {
+            Toast.makeText(a, R.string.could_not_open, Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** True where {@link #open} should show {@link #sections} rather than the TV's settings page. */
     static boolean applies(PackageManager pm, Intent tvSettings) {
         if (android.os.Build.VERSION.SDK_INT >= 26) return false;
         ComponentName target = tvSettings.resolveActivity(pm);

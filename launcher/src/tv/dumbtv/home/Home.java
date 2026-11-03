@@ -61,7 +61,7 @@ public final class Home extends Activity {
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final ExecutorService colorIo = Executors.newSingleThreadExecutor();
-    private final List<TextView> chips = new ArrayList<>();
+    private final List<View> chips = new ArrayList<>();
     private Config cfg;
     private TvInputManager tv;
     private int applied = -1, appsGeneration;
@@ -562,7 +562,7 @@ public final class Home extends Activity {
                 // The library banner sits between the chips and the rows; Down from it
                 // goes where Down from the chips goes without it.
                 if (focused == hero && direction == View.FOCUS_UP) {
-                    for (TextView c : chips) if (c.getVisibility() == View.VISIBLE) return c;
+                    for (View c : chips) if (c.getVisibility() == View.VISIBLE) return c;
                 }
                 if (focused == hero && direction != View.FOCUS_DOWN) return focused;
                 if (direction == View.FOCUS_DOWN && chips.contains(focused) && heroShown()) {
@@ -623,9 +623,9 @@ public final class Home extends Activity {
                     int[] at = new int[2];
                     focused.getLocationOnScreen(at);
                     int x = at[0] + focused.getWidth() / 2;
-                    TextView best = null;
+                    View best = null;
                     int bestGap = Integer.MAX_VALUE;
-                    for (TextView c : chips) {
+                    for (View c : chips) {
                         c.getLocationOnScreen(at);
                         int gap = Math.abs(at[0] + c.getWidth() / 2 - x);
                         if (gap < bestGap) {
@@ -667,8 +667,6 @@ public final class Home extends Activity {
         head.addView(when, new LinearLayout.LayoutParams(0, WRAP, 1f));
         head.addView(chip(getString(R.string.options), R.drawable.chip_options, R.drawable.chip_options_mark,
                 v -> startActivity(new Intent(this, Options.class))));
-        head.addView(chip(getString(R.string.settings), R.drawable.chip_settings, R.drawable.chip_settings_mark,
-                v -> openSettings()));
         column.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         hero = new Hero(this, ui, io);
@@ -793,12 +791,17 @@ public final class Home extends Activity {
         applied = cfg.version();
         int accent = cfg.accent();
         boolean icons = iconChips();
-        for (TextView c : chips) {
-            Ui.focusStyle(c, accent, 0x14FFFFFF, dp(icons ? 21 : 18));
-            int[] art = (int[]) c.getTag();
-            c.setCompoundDrawablesRelative(icons ? Ui.chipIcon(getDrawable(art[0]), getDrawable(art[1]),
-                    accent, dp(22)) : null, null, null, null);
-            chipLook(c, c.isFocused());
+        for (View c : chips) {
+            if (c instanceof TextView) {
+                TextView t = (TextView) c;
+                Ui.focusStyle(t, accent, 0x14FFFFFF, dp(icons ? 21 : 18));
+                int[] art = (int[]) t.getTag();
+                t.setCompoundDrawablesRelative(icons ? Ui.chipIcon(getDrawable(art[0]), getDrawable(art[1]),
+                        accent, dp(22)) : null, null, null, null);
+                chipLook(t, t.isFocused());
+            } else if (c instanceof ImageView) {
+                Ui.ghostIcon((ImageView) c, accent, dp(14));
+            }
             c.setVisibility(locked() ? View.GONE : View.VISIBLE);
         }
         meter.setVisibility("on".equals(cfg.get(Config.MEMORY)) ? View.VISIBLE : View.GONE);
@@ -1218,36 +1221,6 @@ public final class Home extends Activity {
         }
         o.inJustDecodeBounds = false;
         return BitmapFactory.decodeFile(f.getPath(), o);
-    }
-
-    /**
-     * Fire OS answers the generic settings action with a stub that reopens Amazon's home, which
-     * Guard then replaces with ours. The TV settings entry point opens the real settings screen,
-     * except on Fire OS 6, where that page draws off the top of the screen: see FireSettings.
-     */
-    private void openSettings() {
-        Intent tvSettings = new Intent(Intent.ACTION_MAIN)
-                .addCategory("android.intent.category.LEANBACK_SETTINGS");
-        if (FireSettings.applies(getPackageManager(), tvSettings)) {
-            settingsList();
-            return;
-        }
-        boolean found = tvSettings.resolveActivity(getPackageManager()) != null;
-        launch(found ? tvSettings : new Intent(Settings.ACTION_SETTINGS), null);
-    }
-
-    private void settingsList() {
-        List<Item> sections = FireSettings.sections(this);
-        CharSequence[] labels = new CharSequence[sections.size()];
-        for (int i = 0; i < labels.length; i++) labels[i] = sections.get(i).label;
-        new AlertDialog.Builder(this, Ui.DIALOG)
-                .setTitle(R.string.settings)
-                .setItems(labels, (d, which) -> {
-                    Item s = sections.get(which);
-                    if (Guard.AMAZON.equals(s.id)) Guard.pause();
-                    launch(new Intent(s.intent), null);
-                })
-                .show();
     }
 
     /**

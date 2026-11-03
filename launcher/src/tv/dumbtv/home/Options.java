@@ -69,6 +69,7 @@ public final class Options extends Activity {
         list.addView(action(getString(R.string.inputs_on_home), () -> pick(Catalog.INPUTS)));
         list.addView(action(getString(R.string.reset_layout), this::reset));
         list.addView(action(getString(R.string.export_settings), this::export));
+        list.addView(action(getString(R.string.settings), () -> FireSettings.open(this)));
         list.addView(action(getString(R.string.open_amazon_home), () -> {
             Guard.amazon(this);
             finish();

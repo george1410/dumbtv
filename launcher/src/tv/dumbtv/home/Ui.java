@@ -9,6 +9,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.util.TypedValue;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 final class Ui {
@@ -71,4 +72,16 @@ final class Ui {
     private static ColorStateList focused(int on, int off) {
         return new ColorStateList(new int[][] {{android.R.attr.state_focused}, {}}, new int[] {on, off});
     }
+
+    /** Quiet icon at rest, accent disc when focused. */
+    static void ghostIcon(ImageView v, int accent, float radius) {
+        StateListDrawable bg = new StateListDrawable();
+        bg.addState(new int[] {android.R.attr.state_focused}, round(accent, radius));
+        bg.addState(new int[0], round(0x00000000, radius));
+        v.setBackground(bg);
+        v.setImageTintList(new ColorStateList(
+                new int[][] {{android.R.attr.state_focused}, {}},
+                new int[] {ink(accent), 0x33FFFFFF}));
+    }
+
 }
