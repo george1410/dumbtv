@@ -195,10 +195,10 @@ public final class Home extends Activity {
         }
     }
 
-    /** A compact on-now card: channel name and what's playing. */
+    /** A compact on-now card: channel name, what's playing, and what's next. */
     private final class NowCard extends LinearLayout {
         final Channels.Channel channel;
-        final TextView name, prog;
+        final TextView name, prog, next;
 
         NowCard(Channels.Channel ch) {
             super(Home.this);
@@ -209,11 +209,6 @@ public final class Home extends Activity {
             setClickable(true);
             setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);
             setOnClickListener(v -> openChannel(ch));
-            setOnFocusChangeListener((view, has) -> {
-                view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110).start();
-                paint();
-                if (has) focusBackground(null);
-            });
             TextView via = Ui.text(Home.this, 11, Ui.FAINT, Ui.MEDIUM);
             via.setText(ch.name.toUpperCase(Locale.ROOT));
             via.setLetterSpacing(0.06f);
@@ -226,12 +221,23 @@ public final class Home extends Activity {
             prog.setSingleLine(true);
             prog.setEllipsize(TextUtils.TruncateAt.END);
             prog.setPadding(0, dp(4), 0, 0);
+            next = Ui.text(Home.this, 13, Ui.FAINT, Ui.LIGHT);
+            next.setSingleLine(true);
+            next.setEllipsize(TextUtils.TruncateAt.END);
+            next.setPadding(0, dp(2), 0, 0);
+            next.setVisibility(GONE);
             addView(via);
             addView(name, new LayoutParams(MATCH, WRAP));
             addView(prog, new LayoutParams(MATCH, WRAP));
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), WRAP);
+            addView(next, new LayoutParams(MATCH, WRAP));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), MATCH);
             lp.rightMargin = dp(10);
             setLayoutParams(lp);
+            setOnFocusChangeListener((view, has) -> {
+                paint();
+                crawl(name, has);
+                if (has) focusBackground(null);
+            });
         }
 
         void paint() {
@@ -242,16 +248,37 @@ public final class Home extends Activity {
                     : Ui.round(0xFF16171C, dp(14)));
             name.setTextColor(Ui.TEXT);
             prog.setTextColor(has ? Ui.TEXT : Ui.MUTED);
+            next.setTextColor(has ? Ui.MUTED : Ui.FAINT);
         }
 
         void bind(long now) {
             Epg.Programme on = playing(channel, now);
-            name.setText(on == null ? chEmpty() : on.title);
-            prog.setText(on == null ? "" : left(on, now));
+            String title = on == null ? chEmpty() : on.title;
+            if (!TextUtils.equals(name.getText(), title)) {
+                name.setText(title);
+                if (isFocused()) crawl(name, true);
+            }
+            String remain = on == null ? "" : left(on, now);
+            if (!TextUtils.equals(prog.getText(), remain)) prog.setText(remain);
+            Epg.Programme after = on == null ? null : after(channel, on);
+            if (after == null || after.title.isEmpty()) {
+                next.setVisibility(GONE);
+            } else {
+                String line = "then " + after.title;
+                if (!TextUtils.equals(next.getText(), line)) next.setText(line);
+                next.setVisibility(VISIBLE);
+            }
         }
 
         private String chEmpty() {
             return epg == Epg.EMPTY ? "" : "No listings";
+        }
+
+        private void crawl(TextView t, boolean on) {
+            t.setEllipsize(on ? TextUtils.TruncateAt.MARQUEE : TextUtils.TruncateAt.END);
+            t.setMarqueeRepeatLimit(on ? -1 : 0);
+            t.setHorizontallyScrolling(on);
+            t.setSelected(on);
         }
     }
 
@@ -281,7 +308,7 @@ public final class Home extends Activity {
         card.addView(eyebrow);
         card.addView(title, new LinearLayout.LayoutParams(MATCH, WRAP));
         card.addView(sub, new LinearLayout.LayoutParams(MATCH, WRAP));
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), WRAP);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), MATCH);
         lp.rightMargin = dp(10);
         card.setLayoutParams(lp);
         return card;
@@ -1249,6 +1276,14 @@ public final class Home extends Activity {
     private Epg.Programme playing(Channels.Channel ch, long now) {
         for (Epg.Programme p : epg.listings(ch)) {
             if (p.start <= now && p.stop > now) return p;
+        }
+        return null;
+    }
+
+    private Epg.Programme after(Channels.Channel ch, Epg.Programme on) {
+        List<Epg.Programme> list = epg.listings(ch);
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i) == on) return i + 1 < list.size() ? list.get(i + 1) : null;
         }
         return null;
     }
