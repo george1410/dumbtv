@@ -30,6 +30,7 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.HorizontalScrollView;
@@ -54,6 +55,8 @@ import java.util.concurrent.Future;
 public final class Home extends Activity {
     /** How long Menu is held to open Options while the child lock is on. */
     static final long UNLOCK_MS = 3000;
+    /** Focus-follow scroll; short enough for the remote, long enough not to jump. */
+    private static final int SLIDE_MS = 180;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
     private static final int WRAP = ViewGroup.LayoutParams.WRAP_CONTENT;
     private static final String APPSTORE = "com.amazon.venezia";
@@ -159,21 +162,7 @@ public final class Home extends Activity {
             strip.setClipChildren(false);
             strip.setClipToPadding(false);
             strip.setPadding(bleed, dp(12), bleed, dp(8));
-            scroll = new HorizontalScrollView(Home.this) {
-                /** Keeps the focused tile centered, except near either end of the row. */
-                @Override
-                protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) {
-                    if (getChildCount() == 0) return 0;
-                    int range = Math.max(0, getChildAt(0).getWidth() - (getWidth() - getPaddingLeft() - getPaddingRight()));
-                    int target = Math.max(0, Math.min(range, r.centerX() - getWidth() / 2));
-                    return target - getScrollX();
-                }
-            };
-            scroll.setFocusable(false);
-            scroll.setHorizontalScrollBarEnabled(false);
-            scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-            scroll.setClipChildren(false);
-            scroll.setClipToPadding(false);
+            scroll = new StripScroll(false);
             scroll.setPadding(edge - bleed, 0, edge - bleed, 0);
             scroll.addView(strip, new FrameLayout.LayoutParams(WRAP, WRAP));
             grid = new Grid(Home.this);
@@ -429,8 +418,8 @@ public final class Home extends Activity {
     }
 
     /**
-     * The scroll position for a focused rect {@code r}: the earliest of the top or a section
-     * title that still shows the row holding {@code r} whole.
+     * The scroll position that keeps the focused row fully on screen, moving as little as
+     * possible. The row is not snapped to the top.
      */
     private int rowTarget(ScrollView page, Rect r) {
         View content = page.getChildAt(0);
@@ -440,14 +429,18 @@ public final class Home extends Activity {
             if (r.centerY() >= b[0]) at = b;
         }
         if (at == null) return 0;
-        int range = Math.max(0, content.getHeight() - page.getHeight());
-        return Math.max(0, Math.min(range, stopFor(at, rows, page.getHeight())));
+        int height = page.getHeight();
+        int range = Math.max(0, content.getHeight() - height);
+        int y = page.getScrollY();
+        if (at[1] > y + height) y = at[1] - height;
+        if (at[0] < y) y = at[0];
+        return Math.max(0, Math.min(range, y));
     }
 
     /**
      * Title top and strip bottom of each visible row, in {@code content}'s coordinates. In grid
      * mode every line of tiles is its own block (the first one starting at the row title), so
-     * a grid taller than the screen still scrolls a whole line at a time.
+     * a grid taller than the screen still keeps one line fully visible at a time.
      */
     private List<int[]> rowBlocks(View content) {
         List<int[]> rows = new ArrayList<>();
@@ -468,36 +461,6 @@ public final class Home extends Activity {
         return rows;
     }
 
-    /** The earliest of the top or a row title that shows the whole of {@code at}. */
-    private static int stopFor(int[] at, List<int[]> rows, int height) {
-        if (height >= at[1]) return 0;
-        for (int[] b : rows) {
-            if (b[0] <= at[0] && b[0] + height >= at[1]) return b[0];
-        }
-        return at[0];
-    }
-
-    /**
-     * When the page is taller than the screen, pads its bottom just enough that every row's stop
-     * is reachable. Otherwise the last stop is clamped and the clock above it shows half cut.
-     */
-    private void fitBottom(ScrollView page) {
-        View content = page.getChildAt(0);
-        if (content == null || page.getHeight() == 0) return;
-        int base = dp(32), height = page.getHeight();
-        int natural = content.getHeight() - content.getPaddingBottom() + base;
-        int want = base;
-        if (natural > height) {
-            int last = 0;
-            List<int[]> rows = rowBlocks(content);
-            for (int[] b : rows) last = Math.max(last, stopFor(b, rows, height));
-            want = base + Math.max(0, last + height - natural);
-        }
-        if (content.getPaddingBottom() != want) {
-            content.setPadding(content.getPaddingLeft(), content.getPaddingTop(), content.getPaddingRight(), want);
-        }
-    }
-
     /** {@code v}'s top edge in {@code content}'s coordinates. */
     private static int topIn(View v, View content) {
         int y = 0;
@@ -506,6 +469,154 @@ public final class Home extends Activity {
             v = (View) v.getParent();
         }
         return y;
+    }
+
+    /** Vertical page that follows focus with a short slide, instead of jumping a row to the top. */
+    private final class PageScroll extends ScrollView {
+        private ValueAnimator slide;
+
+        PageScroll() {
+            super(Home.this);
+            setFocusable(false);
+            setFillViewport(true);
+            setVerticalScrollBarEnabled(false);
+            setOverScrollMode(OVER_SCROLL_NEVER);
+            setClipChildren(false);
+        }
+
+        @Override
+        protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) {
+            return rowTarget(this, r) - getScrollY();
+        }
+
+        @Override
+        public void requestChildFocus(View child, View focused) {
+            int from = getScrollY();
+            int to = from;
+            if (focused != null) {
+                Rect r = new Rect();
+                focused.getDrawingRect(r);
+                offsetDescendantRectToMyCoords(focused, r);
+                to = from + computeScrollDeltaToGetChildRectOnScreen(r);
+            }
+            super.requestChildFocus(child, focused);
+            scrollTo(0, from);
+            slideY(to);
+        }
+
+        @Override
+        public boolean requestChildRectangleOnScreen(View child, Rect rectangle, boolean immediate) {
+            rectangle.offset(child.getLeft() - child.getScrollX(), child.getTop() - child.getScrollY());
+            int delta = computeScrollDeltaToGetChildRectOnScreen(rectangle);
+            if (delta == 0) return false;
+            if (immediate) scrollBy(0, delta);
+            else slideY(getScrollY() + delta);
+            return true;
+        }
+
+        /**
+         * Up and down only move the focus; scrolling follows it. Left to ScrollView, a press
+         * with nothing focusable that way scrolls half a screen and leaves rows cut.
+         */
+        @Override
+        public boolean executeKeyEvent(KeyEvent e) {
+            switch (e.getKeyCode()) {
+                case KeyEvent.KEYCODE_DPAD_UP:
+                case KeyEvent.KEYCODE_DPAD_DOWN:
+                case KeyEvent.KEYCODE_PAGE_UP:
+                case KeyEvent.KEYCODE_PAGE_DOWN:
+                case KeyEvent.KEYCODE_SPACE:
+                    return false;
+                default:
+                    return super.executeKeyEvent(e);
+            }
+        }
+
+        private void slideY(int to) {
+            if (slide != null) slide.cancel();
+            int from = getScrollY();
+            if (from == to) return;
+            slide = ValueAnimator.ofInt(from, to);
+            slide.setDuration(SLIDE_MS);
+            slide.setInterpolator(new DecelerateInterpolator());
+            slide.addUpdateListener(a -> scrollTo(0, (int) a.getAnimatedValue()));
+            slide.start();
+        }
+    }
+
+    /** Horizontal strip that keeps the focused child centered, with a short slide instead of a jump. */
+    private final class StripScroll extends HorizontalScrollView {
+        private final boolean arrowsMoveFocusOnly;
+        private ValueAnimator slide;
+
+        StripScroll(boolean arrowsMoveFocusOnly) {
+            super(Home.this);
+            this.arrowsMoveFocusOnly = arrowsMoveFocusOnly;
+            setFocusable(false);
+            setHorizontalScrollBarEnabled(false);
+            setOverScrollMode(OVER_SCROLL_NEVER);
+            setClipChildren(false);
+            setClipToPadding(false);
+        }
+
+        @Override
+        protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) {
+            if (getChildCount() == 0) return 0;
+            int range = Math.max(0, getChildAt(0).getWidth()
+                    - (getWidth() - getPaddingLeft() - getPaddingRight()));
+            int target = Math.max(0, Math.min(range, r.centerX() - getWidth() / 2));
+            return target - getScrollX();
+        }
+
+        @Override
+        public void requestChildFocus(View child, View focused) {
+            int from = getScrollX();
+            int to = from;
+            if (focused != null) {
+                Rect r = new Rect();
+                focused.getDrawingRect(r);
+                offsetDescendantRectToMyCoords(focused, r);
+                to = from + computeScrollDeltaToGetChildRectOnScreen(r);
+            }
+            super.requestChildFocus(child, focused);
+            scrollTo(from, 0);
+            slideX(to);
+        }
+
+        @Override
+        public boolean requestChildRectangleOnScreen(View child, Rect rectangle, boolean immediate) {
+            rectangle.offset(child.getLeft() - child.getScrollX(), child.getTop() - child.getScrollY());
+            int delta = computeScrollDeltaToGetChildRectOnScreen(rectangle);
+            if (delta == 0) return false;
+            if (immediate) scrollBy(delta, 0);
+            else slideX(getScrollX() + delta);
+            return true;
+        }
+
+        @Override
+        public boolean executeKeyEvent(KeyEvent e) {
+            if (arrowsMoveFocusOnly) {
+                switch (e.getKeyCode()) {
+                    case KeyEvent.KEYCODE_DPAD_LEFT:
+                    case KeyEvent.KEYCODE_DPAD_RIGHT:
+                        return false;
+                    default:
+                        break;
+                }
+            }
+            return super.executeKeyEvent(e);
+        }
+
+        private void slideX(int to) {
+            if (slide != null) slide.cancel();
+            int from = getScrollX();
+            if (from == to) return;
+            slide = ValueAnimator.ofInt(from, to);
+            slide.setDuration(SLIDE_MS);
+            slide.setInterpolator(new DecelerateInterpolator());
+            slide.addUpdateListener(a -> scrollTo((int) a.getAnimatedValue(), 0));
+            slide.start();
+        }
     }
 
     private View build() {
@@ -518,42 +629,7 @@ public final class Home extends Activity {
         tint = new View(this);
         root.addView(tint, new FrameLayout.LayoutParams(MATCH, MATCH));
 
-        ScrollView scroll = new ScrollView(this) {
-            /** Scrolls in whole rows: the focused row shows complete, and a row starts at the top edge. */
-            @Override
-            protected int computeScrollDeltaToGetChildRectOnScreen(Rect r) {
-                return rowTarget(this, r) - getScrollY();
-            }
-
-            @Override
-            protected void onLayout(boolean changed, int l, int t, int r, int b) {
-                super.onLayout(changed, l, t, r, b);
-                fitBottom(this);
-            }
-
-            /**
-             * Up and down only move the focus; scrolling follows it. Left to ScrollView, a press
-             * with nothing focusable that way scrolls half a screen and leaves rows cut.
-             */
-            @Override
-            public boolean executeKeyEvent(KeyEvent e) {
-                switch (e.getKeyCode()) {
-                    case KeyEvent.KEYCODE_DPAD_UP:
-                    case KeyEvent.KEYCODE_DPAD_DOWN:
-                    case KeyEvent.KEYCODE_PAGE_UP:
-                    case KeyEvent.KEYCODE_PAGE_DOWN:
-                    case KeyEvent.KEYCODE_SPACE:
-                        return false;
-                    default:
-                        return super.executeKeyEvent(e);
-                }
-            }
-        };
-        scroll.setFocusable(false);
-        scroll.setFillViewport(true);
-        scroll.setVerticalScrollBarEnabled(false);
-        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scroll.setClipChildren(false);
+        ScrollView scroll = new PageScroll();
         root.addView(scroll, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         LinearLayout column = new LinearLayout(this) {
