@@ -295,6 +295,11 @@ final class Config {
         save();
     }
 
+    /** True when {@code key} has been written, including an empty list. */
+    boolean defined(String key) {
+        return values.containsKey(key);
+    }
+
     List<String> list(String key) {
         List<String> out = new ArrayList<>();
         for (String s : get(key, "").split(",")) {
@@ -305,7 +310,14 @@ final class Config {
 
     void setList(String key, List<String> items) {
         // String.join is Android 8+; TextUtils.join keeps Fire OS 6 (Android 7.1) working.
-        set(key, TextUtils.join(",", items));
+        // An empty list is stored as an empty value so it is distinct from "never set".
+        if (items.isEmpty()) {
+            values.put(key, "");
+            version++;
+            save();
+        } else {
+            set(key, TextUtils.join(",", items));
+        }
     }
 
     /** Every key=value with this prefix in one string, to notice when any of them changes. */

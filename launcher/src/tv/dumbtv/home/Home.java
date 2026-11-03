@@ -23,6 +23,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.text.style.RelativeSizeSpan;
 import android.view.Gravity;
@@ -65,6 +66,7 @@ public final class Home extends Activity {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final ExecutorService colorIo = Executors.newSingleThreadExecutor();
     private final List<View> chips = new ArrayList<>();
+    private final List<NowCard> nowCards = new ArrayList<>();
     private Config cfg;
     private TvInputManager tv;
     private int applied = -1, appsGeneration;
@@ -76,9 +78,12 @@ public final class Home extends Activity {
     private ImageView wall;
     private View shade;
     private View tint;
-    private LinearLayout head;
-    private TextView clock, date;
+    private LinearLayout head, nowStrip, liveCard;
+    private View nowBlock;
+    private TextView clock, date, nowHeading;
     private Meter meter;
+    private Epg epg = Epg.EMPTY;
+    private boolean epgLoading;
     private Row apps, allApps, inputs;
     private Hero hero;
     private int libraryGeneration;
@@ -183,6 +188,107 @@ public final class Home extends Activity {
             scroll.setVisibility(on && !gridMode ? View.VISIBLE : View.GONE);
             grid.setVisibility(on && gridMode ? View.VISIBLE : View.GONE);
         }
+    }
+
+    /** A compact on-now card: channel name and what's playing. */
+    private final class NowCard extends LinearLayout {
+        final Channels.Channel channel;
+        final TextView name, prog;
+
+        NowCard(Channels.Channel ch) {
+            super(Home.this);
+            this.channel = ch;
+            setOrientation(VERTICAL);
+            setPadding(dp(16), dp(14), dp(16), dp(14));
+            setFocusable(true);
+            setClickable(true);
+            setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);
+            setOnClickListener(v -> openChannel(ch));
+            setOnFocusChangeListener((view, has) -> {
+                view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110).start();
+                paint();
+                if (has) focusBackground(null);
+            });
+            TextView via = Ui.text(Home.this, 11, Ui.FAINT, Ui.MEDIUM);
+            via.setText(ch.name.toUpperCase(Locale.ROOT));
+            via.setLetterSpacing(0.06f);
+            via.setSingleLine(true);
+            name = Ui.text(Home.this, 16, Ui.TEXT, Ui.MEDIUM);
+            name.setSingleLine(true);
+            name.setEllipsize(TextUtils.TruncateAt.END);
+            name.setPadding(0, dp(6), 0, 0);
+            prog = Ui.text(Home.this, 13, Ui.MUTED, Ui.LIGHT);
+            prog.setSingleLine(true);
+            prog.setEllipsize(TextUtils.TruncateAt.END);
+            prog.setPadding(0, dp(4), 0, 0);
+            addView(via);
+            addView(name, new LayoutParams(MATCH, WRAP));
+            addView(prog, new LayoutParams(MATCH, WRAP));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), WRAP);
+            lp.rightMargin = dp(10);
+            setLayoutParams(lp);
+        }
+
+        void paint() {
+            int accent = cfg.accent();
+            boolean has = isFocused();
+            setBackground(has
+                    ? Ui.round((accent & 0x00FFFFFF) | 0x73000000, dp(14))
+                    : Ui.round(0xFF16171C, dp(14)));
+            name.setTextColor(Ui.TEXT);
+            prog.setTextColor(has ? Ui.TEXT : Ui.MUTED);
+        }
+
+        void bind(long now) {
+            Epg.Programme on = playing(channel, now);
+            name.setText(on == null ? chEmpty() : on.title);
+            prog.setText(on == null ? "" : left(on, now));
+        }
+
+        private String chEmpty() {
+            return epg == Epg.EMPTY ? "" : "No listings";
+        }
+    }
+
+    /** Opens the full guide; sits at the start of On Now so Live TV is not a header control. */
+    private LinearLayout makeLiveCard() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        card.setFocusable(true);
+        card.setClickable(true);
+        card.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        card.setOnClickListener(v -> startActivity(new Intent(this, Live.class)));
+        card.setOnFocusChangeListener((view, has) -> {
+            view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110).start();
+            paintLive();
+            if (has) focusBackground(null);
+        });
+        TextView eyebrow = Ui.text(this, 11, Ui.FAINT, Ui.MEDIUM);
+        eyebrow.setText("LIVE TV");
+        eyebrow.setLetterSpacing(0.06f);
+        TextView title = Ui.text(this, 16, Ui.TEXT, Ui.MEDIUM);
+        title.setText("Programme guide");
+        title.setPadding(0, dp(6), 0, 0);
+        TextView sub = Ui.text(this, 13, Ui.MUTED, Ui.LIGHT);
+        sub.setText("All channels");
+        sub.setPadding(0, dp(4), 0, 0);
+        card.addView(eyebrow);
+        card.addView(title, new LinearLayout.LayoutParams(MATCH, WRAP));
+        card.addView(sub, new LinearLayout.LayoutParams(MATCH, WRAP));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(210), WRAP);
+        lp.rightMargin = dp(10);
+        card.setLayoutParams(lp);
+        return card;
+    }
+
+    private void paintLive() {
+        if (liveCard == null) return;
+        int accent = cfg.accent();
+        boolean has = liveCard.isFocused();
+        liveCard.setBackground(has
+                ? Ui.round((accent & 0x00FFFFFF) | 0x73000000, dp(14))
+                : Ui.round((accent & 0x00FFFFFF) | 0x3D000000, dp(14)));
     }
 
     @Override
@@ -314,6 +420,7 @@ public final class Home extends Activity {
         f.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         registerReceiver(time, f);
         tick();
+        loadEpg();
     }
 
     @Override
@@ -635,8 +742,7 @@ public final class Home extends Activity {
         LinearLayout column = new LinearLayout(this) {
             @Override
             public View focusSearch(View focused, int direction) {
-                // The library banner sits between the chips and the rows; Down from it
-                // goes where Down from the chips goes without it.
+                // Library banner, then On Now, then the app rows.
                 if (focused == hero && direction == View.FOCUS_UP) {
                     for (View c : chips) if (c.getVisibility() == View.VISIBLE) return c;
                 }
@@ -645,11 +751,41 @@ public final class Home extends Activity {
                     return hero;
                 }
                 if (direction == View.FOCUS_DOWN && (chips.contains(focused) || focused == hero)) {
+                    if (nowStrip != null && nowStrip.getVisibility() == View.VISIBLE
+                            && nowStrip.getChildCount() > 0) {
+                        View now = nearest(nowStrip, focused);
+                        if (now != null) return now;
+                    }
                     View remembered = rememberedTile(lastFocusedKind);
                     if (remembered != null) return remembered;
                     for (Row row : rows()) {
                         View below = nearest(row.tiles(), focused);
                         if (below != null) return below;
+                    }
+                }
+                if (focused instanceof NowCard && nowStrip != null) {
+                    int idx = nowStrip.indexOfChild(focused);
+                    if (direction == View.FOCUS_LEFT && idx == 0) return focused;
+                    if (direction == View.FOCUS_RIGHT && idx == nowStrip.getChildCount() - 1) {
+                        return focused;
+                    }
+                }
+                if (direction == View.FOCUS_DOWN && focused instanceof NowCard) {
+                    View remembered = rememberedTile(lastFocusedKind);
+                    if (remembered != null) return remembered;
+                    View below = nearest(apps.tiles(), focused);
+                    if (below != null) return below;
+                }
+                if (direction == View.FOCUS_UP && focused instanceof Tile
+                        && Catalog.APPS.equals(((Tile) focused).kind)
+                        && nowStrip != null && nowStrip.getVisibility() == View.VISIBLE
+                        && nowStrip.getChildCount() > 0) {
+                    ViewGroup parent = (ViewGroup) focused.getParent();
+                    boolean firstLine = !(parent instanceof Grid)
+                            || !aboveInGrid(parent, (Tile) focused);
+                    if (firstLine) {
+                        View now = nearest(nowStrip, focused);
+                        if (now != null) return now;
                     }
                 }
                 if (focused instanceof Tile
@@ -702,6 +838,7 @@ public final class Home extends Activity {
                     View best = null;
                     int bestGap = Integer.MAX_VALUE;
                     for (View c : chips) {
+                        if (c.getVisibility() != View.VISIBLE) continue;
                         c.getLocationOnScreen(at);
                         int gap = Math.abs(at[0] + c.getWidth() / 2 - x);
                         if (gap < bestGap) {
@@ -723,13 +860,14 @@ public final class Home extends Activity {
         head = new LinearLayout(this);
         head.setClipChildren(false);
         head.setClipToPadding(false);
-        head.setGravity(Gravity.TOP);
+        head.setGravity(Gravity.CENTER_VERTICAL);
         head.setPadding(dp(56), 0, dp(56), dp(12));
         LinearLayout when = new LinearLayout(this);
         when.setOrientation(LinearLayout.VERTICAL);
-        clock = Ui.text(this, 52, Ui.TEXT, Ui.LIGHT);
-        date = Ui.text(this, 15, Ui.MUTED, Ui.MEDIUM);
-        date.setPadding(dp(2), dp(8), 0, 0);
+        clock = Ui.text(this, 56, Ui.TEXT, Ui.LIGHT);
+        date = Ui.text(this, 14, Ui.MUTED, Ui.MEDIUM);
+        date.setLetterSpacing(0.08f);
+        date.setPadding(dp(2), dp(10), 0, 0);
         when.addView(clock);
         when.addView(date);
         meter = new Meter(this);
@@ -756,6 +894,8 @@ public final class Home extends Activity {
         heroLp.topMargin = dp(2);
         column.addView(hero, heroLp);
         this.column = column;
+
+        nowBlock = nowRow(column);
 
         apps = new Row(Catalog.APPS, getString(R.string.row_apps), column);
         allApps = new Row(Catalog.ALL_APPS, getString(R.string.row_all_apps), column);
@@ -863,9 +1003,32 @@ public final class Home extends Activity {
         c.setPadding(dp(10), dp(10), dp(focused ? 16 : 10), dp(10));
     }
 
+    private View nowRow(LinearLayout parent) {
+        LinearLayout block = new LinearLayout(this);
+        block.setOrientation(LinearLayout.VERTICAL);
+        block.setClipChildren(false);
+        int edge = dp(56), bleed = dp(14);
+        nowHeading = Ui.text(this, 12, Ui.FAINT, Ui.MEDIUM);
+        nowHeading.setText("ON NOW");
+        nowHeading.setLetterSpacing(0.14f);
+        nowHeading.setPadding(edge, dp(8), edge, dp(2));
+        nowStrip = new LinearLayout(this);
+        nowStrip.setClipChildren(false);
+        nowStrip.setClipToPadding(false);
+        nowStrip.setPadding(bleed, dp(10), bleed, dp(8));
+        HorizontalScrollView scroll = new StripScroll(true);
+        scroll.setPadding(edge - bleed, 0, edge - bleed, 0);
+        scroll.addView(nowStrip, new FrameLayout.LayoutParams(WRAP, WRAP));
+        block.addView(nowHeading);
+        block.addView(scroll, new LinearLayout.LayoutParams(MATCH, WRAP));
+        parent.addView(block, new LinearLayout.LayoutParams(MATCH, WRAP));
+        return block;
+    }
+
     private void apply() {
         applied = cfg.version();
         int accent = cfg.accent();
+        boolean hide = locked();
         boolean icons = iconChips();
         for (View c : chips) {
             if (c instanceof TextView) {
@@ -878,8 +1041,9 @@ public final class Home extends Activity {
             } else if (c instanceof ImageView) {
                 Ui.ghostIcon((ImageView) c, accent, dp(14));
             }
-            c.setVisibility(locked() ? View.GONE : View.VISIBLE);
+            c.setVisibility(hide ? View.GONE : View.VISIBLE);
         }
+        if (nowBlock != null) nowBlock.setVisibility(hide ? View.GONE : View.VISIBLE);
         meter.setVisibility("on".equals(cfg.get(Config.MEMORY)) ? View.VISIBLE : View.GONE);
         meter.setAccent(accent);
         hero.setAccent(accent);
@@ -890,11 +1054,91 @@ public final class Home extends Activity {
             artState = state;
             for (Item it : apps.all) it.artRequested = false;
         }
+        fillNow();
+        paintLive();
         render(apps);
         render(allApps);
         render(inputs);
         background();
         tick();
+        loadEpg();
+    }
+
+    private void fillNow() {
+        if (nowStrip == null) return;
+        nowStrip.removeAllViews();
+        nowCards.clear();
+        if (locked()) {
+            nowBlock.setVisibility(View.GONE);
+            return;
+        }
+        if (liveCard == null) liveCard = makeLiveCard();
+        nowStrip.addView(liveCard);
+        for (Channels.Channel ch : Channels.favourites(this, cfg)) {
+            NowCard card = new NowCard(ch);
+            nowCards.add(card);
+            nowStrip.addView(card);
+        }
+        nowBlock.setVisibility(View.VISIBLE);
+        bindNow();
+    }
+
+    private void bindNow() {
+        long now = System.currentTimeMillis();
+        for (NowCard card : nowCards) {
+            card.paint();
+            card.bind(now);
+        }
+    }
+
+    private void loadEpg() {
+        if (epgLoading) return;
+        epgLoading = true;
+        io.execute(() -> {
+            Epg got = epg != Epg.EMPTY ? epg : Epg.cached(this);
+            final Epg cached = got;
+            ui.post(() -> {
+                epg = cached;
+                bindNow();
+            });
+            if (!got.stale(System.currentTimeMillis())) {
+                ui.post(() -> epgLoading = false);
+                return;
+            }
+            try {
+                final Epg fresh = Epg.fetch(this);
+                ui.post(() -> {
+                    epg = fresh;
+                    epgLoading = false;
+                    bindNow();
+                });
+            } catch (Exception e) {
+                ui.post(() -> epgLoading = false);
+            }
+        });
+    }
+
+    private Epg.Programme playing(Channels.Channel ch, long now) {
+        for (Epg.Programme p : epg.listings(ch)) {
+            if (p.start <= now && p.stop > now) return p;
+        }
+        return null;
+    }
+
+    private String left(Epg.Programme p, long now) {
+        long mins = Math.max(1, (p.stop - now + 59999) / 60000);
+        if (mins < 60) return mins + " min left";
+        return mins / 60 + " h" + (mins % 60 == 0 ? "" : " " + mins % 60 + " min") + " left";
+    }
+
+    private void openChannel(Channels.Channel ch) {
+        Intent i = ch.intent(this);
+        try {
+            if (i == null) throw new ActivityNotFoundException();
+            startActivity(i);
+        } catch (ActivityNotFoundException | SecurityException e) {
+            startActivity(new Intent(this, Live.class));
+        }
     }
 
     /** Rebuilds the app list, keeping loaded art for every package except {@code changed}. */
@@ -1054,7 +1298,12 @@ public final class Home extends Activity {
             headH = head.getMeasuredHeight();
         }
         if (headH <= 0) headH = dp(96);
-        int maxShift = Math.max(0, screenH - dp(40) - headH - titleH - scrollH - dp(32));
+        int nowH = 0;
+        if (nowBlock != null && nowBlock.getVisibility() == View.VISIBLE) {
+            nowH = nowBlock.getHeight();
+            if (nowH <= 0) nowH = dp(128);
+        }
+        int maxShift = Math.max(0, screenH - dp(40) - headH - nowH - titleH - scrollH - dp(32));
         return Math.min(desired, maxShift);
     }
 
@@ -1248,6 +1497,7 @@ public final class Home extends Activity {
         }
         // hourly and time-of-day rotations change while the screen stays open; a no-op otherwise
         background();
+        bindNow();
     }
 
     private void background() {

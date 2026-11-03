@@ -223,7 +223,7 @@ public final class Options extends Activity {
         new AlertDialog.Builder(this, Ui.DIALOG)
                 .setTitle(R.string.reset_title)
                 .setMessage(R.string.reset_message)
-                .setPositiveButton(R.string.reset, (d, w) -> cfg.removePrefix("name.", "apps.", "inputs.", IconPack.CHOSEN))
+                .setPositiveButton(R.string.reset, (d, w) -> cfg.removePrefix("name.", "apps.", "inputs.", "live.", IconPack.CHOSEN))
                 .setNegativeButton(R.string.cancel, null)
                 .show();
     }

@@ -8,14 +8,20 @@ A home screen for Fire TV that does one job: show your apps and your HDMI inputs
 
 - **107 KB.** Plain Java and Android views. No AndroidX, Kotlin, Compose, Play
   Services or any other library.
-- **No network.** There is no `INTERNET` permission, so Android will not let it
-  open a connection.
-- **One permission on Fire OS 7 and 8: run at startup.** personalDNSfilter only
-  takes a restart request from an app holding it, and dumbtv home uses it for
-  nothing else: when Android kills the filter under memory pressure, dumbtv home
-  starts it again (on HOME, at boot and every 15 minutes). Fire OS 6 adds usage
-  access and task order for the Keeper below, both limited to Android 8.1 and
-  earlier. Check: `aapt2 dump permissions dumbtv-home.apk`.
+- **One network request.** The Live TV guide downloads UK listings from
+  `epgtalk.com/api/now/uk.json` while it is open, at most every 90 minutes. Nothing
+  is sent except that request; the home screen itself makes none.
+- **`INTERNET` and run-at-startup on Fire OS 7 and 8.** The first is the guide;
+  the second restarts the DNS filter when Android kills it (on HOME, at boot and
+  every 15 minutes). Fire OS 6 also has usage access and task order for the Keeper
+  below, both limited to Android 8.1 and earlier. Check: `aapt2 dump permissions dumbtv-home.apk`.
+- **Live TV.** A now-and-next guide for BBC iPlayer, ITVX, Channel 4, My5 and NOW.
+  OK opens the channel live in its app; 5Star, 5Action and 5USA open My5 instead.
+  NOW channels use an explicit VIEW on AmazonMainActivity with Sky's HD serviceKey.
+  Listed by Freeview number, then Sky number. Channels whose app is not installed
+  are hidden. Options on a channel in the guide adds it to On Now on the home screen
+  (BBC One, ITV1, Channel 4, Channel 5, Sky Sports F1, Football and Main Event
+  until you pick your own). The links and numbers are in `Channels.java`.
 - **No ads, no recommended rows, no account, no analytics, no update checks.**
 - About 60–70 MB of memory with the home screen showing, about 37 MB while an app
   plays (measured on a Fire TV Edition television with 1.4 GB of RAM).

@@ -67,7 +67,8 @@ no root:
   stops Amazon's telemetry and automatic updates from reaching their servers.
   Everything else, including your streaming apps, works as before.
 - **Replaces the home screen** with [dumbtv home](launcher/README.md): your apps,
-  your inputs and a clock. 107 KB, open source, no internet access.
+  your inputs, a clock and a Live TV guide. Open source; its only network use is
+  downloading the guide.
 - **Leaves your apps alone.** Nothing you watch is removed unless you name it.
 - **Can all be undone** with one command.
 
@@ -145,9 +146,9 @@ colours, tile sizes, rows or a grid, wallpapers, adaptive backgrounds, renaming 
 hiding, and the icons of an icon pack you install, all from the remote. HOME lands on
 it in a fraction of a second.
 
-It is plain Java with no libraries and no internet permission, so it cannot send
-anything anywhere. On Fire OS 7 and 8 its only permission is run at startup, used
-to restart the DNS filter when Android kills it. It works
+It is plain Java with no libraries. Its only network use is the Live TV guide,
+which downloads UK listings from epgtalk.com. On Fire OS 7 and 8 it asks for
+`INTERNET` and run-at-startup (to restart the DNS filter). It works
 on its own, without the rest of dumbtv:
 
 ```sh
