@@ -865,12 +865,16 @@ public final class Home extends Activity {
         head.setPadding(dp(56), 0, dp(56), dp(12));
         LinearLayout when = new LinearLayout(this);
         when.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout timeRow = new LinearLayout(this);
+        timeRow.setOrientation(LinearLayout.HORIZONTAL);
         clock = Ui.text(this, 56, Ui.TEXT, Ui.LIGHT);
         date = Ui.text(this, 14, Ui.MUTED, Ui.MEDIUM);
         date.setLetterSpacing(0.08f);
-        date.setPadding(dp(2), dp(10), 0, 0);
-        when.addView(clock);
-        when.addView(date);
+        LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        dateLp.leftMargin = dp(16);
+        timeRow.addView(clock);
+        timeRow.addView(date, dateLp);
+        when.addView(timeRow);
         meter = new Meter(this);
         meter.setWords(getString(R.string.meter_title), getString(R.string.meter_free),
                 getString(R.string.meter_low));
