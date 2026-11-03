@@ -1059,15 +1059,28 @@ public final class Home extends Activity {
         }
     }
 
+    /**
+     * Tile size that packs as many columns as the named size would, then grows each tile so
+     * the row fills the screen between the side paddings.
+     */
     private int[] cardSize() {
+        int prefer;
         switch (cfg.get(Config.TILES)) {
             case "small":
-                return new int[] {dp(144), dp(81)};
+                prefer = dp(144);
+                break;
             case "large":
-                return new int[] {dp(224), dp(126)};
+                prefer = dp(224);
+                break;
             default:
-                return new int[] {dp(180), dp(101)};
+                prefer = dp(180);
+                break;
         }
+        int gap = dp(18);
+        int avail = getResources().getDisplayMetrics().widthPixels - 2 * dp(56);
+        int cols = Math.max(1, (avail + gap) / (prefer + gap));
+        int w = Math.max(1, (avail - (cols - 1) * gap) / cols);
+        return new int[] {w, Math.round(w * 9 / 16f)};
     }
 
     /**
