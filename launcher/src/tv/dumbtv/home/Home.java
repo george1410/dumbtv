@@ -79,6 +79,7 @@ public final class Home extends Activity {
     private View shade;
     private View tint;
     private LinearLayout head, nowStrip, liveCard;
+    private ImageView smartHome;
     private View nowBlock;
     private TextView clock, date, nowHeading;
     private Meter meter;
@@ -837,8 +838,10 @@ public final class Home extends Activity {
                     int x = at[0] + focused.getWidth() / 2;
                     View best = null;
                     int bestGap = Integer.MAX_VALUE;
+                    View fallback = null;
                     for (View c : chips) {
                         if (c.getVisibility() != View.VISIBLE) continue;
+                        if (fallback == null) fallback = c;
                         c.getLocationOnScreen(at);
                         int gap = Math.abs(at[0] + c.getWidth() / 2 - x);
                         if (gap < bestGap) {
@@ -846,7 +849,7 @@ public final class Home extends Activity {
                             best = c;
                         }
                     }
-                    return best != null ? best : chips.get(0);
+                    return best != null ? best : fallback;
                 }
                 return next;
             }
@@ -879,6 +882,9 @@ public final class Home extends Activity {
         under.leftMargin = dp(2);
         when.addView(meter, under);
         head.addView(when, new LinearLayout.LayoutParams(0, WRAP, 1f));
+        smartHome = headerIcon(R.drawable.house, "Alexa Smart Home", v -> openSmartHome());
+        chips.add(smartHome);
+        head.addView(smartHome);
         head.addView(chip(getString(R.string.options), R.drawable.chip_options, R.drawable.chip_options_mark,
                 v -> startActivity(new Intent(this, Options.class))));
         column.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
@@ -1003,6 +1009,38 @@ public final class Home extends Activity {
         c.setPadding(dp(10), dp(10), dp(focused ? 16 : 10), dp(10));
     }
 
+    private ImageView headerIcon(int drawable, String label, View.OnClickListener click) {
+        ImageView v = new ImageView(this);
+        v.setImageResource(drawable);
+        v.setContentDescription(label);
+        v.setPadding(dp(4), dp(4), dp(4), dp(4));
+        v.setFocusable(true);
+        v.setClickable(true);
+        v.setOnClickListener(click);
+        v.setOnFocusChangeListener((view, has) -> {
+            view.animate().scaleX(has ? 1.12f : 1f).scaleY(has ? 1.12f : 1f).setDuration(110).start();
+            if (has) focusBackground(null);
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(28), dp(28));
+        lp.gravity = Gravity.TOP;
+        v.setLayoutParams(lp);
+        return v;
+    }
+
+    private Intent smartHomeIntent() {
+        Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(Catalog.SMART_HOME);
+        return i != null ? i : getPackageManager().getLaunchIntentForPackage(Catalog.SMART_HOME);
+    }
+
+    private void openSmartHome() {
+        Intent i = smartHomeIntent();
+        if (i == null) {
+            Toast.makeText(this, R.string.could_not_open, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        launch(i, Catalog.SMART_HOME);
+    }
+
     private View nowRow(LinearLayout parent) {
         LinearLayout block = new LinearLayout(this);
         block.setOrientation(LinearLayout.VERTICAL);
@@ -1042,6 +1080,9 @@ public final class Home extends Activity {
                 Ui.ghostIcon((ImageView) c, accent, dp(14));
             }
             c.setVisibility(hide ? View.GONE : View.VISIBLE);
+        }
+        if (smartHome != null && (hide || smartHomeIntent() == null)) {
+            smartHome.setVisibility(View.GONE);
         }
         if (nowBlock != null) nowBlock.setVisibility(hide ? View.GONE : View.VISIBLE);
         meter.setVisibility("on".equals(cfg.get(Config.MEMORY)) ? View.VISIBLE : View.GONE);

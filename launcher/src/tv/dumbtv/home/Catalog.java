@@ -21,6 +21,8 @@ import java.util.Map;
 /** Where tiles come from, and which of them the user wants on the home screen. */
 final class Catalog {
     static final String APPS = "apps", ALL_APPS = "allapps", INPUTS = "inputs";
+    /** Lives in the header next to Options, not as a tile. */
+    static final String SMART_HOME = "com.amazon.smarthomemapviewapp";
 
     private Catalog() {}
 
@@ -115,6 +117,7 @@ final class Catalog {
     }
 
     static boolean shown(Config cfg, String kind, Item it) {
+        if (APPS.equals(kind) && SMART_HOME.equals(it.id)) return false;
         if (cfg.list(kind + ".hide").contains(it.id)) return false;
         return !APPS.equals(kind) || it.leanback || cfg.list("apps.show").contains(it.id);
     }
