@@ -44,6 +44,9 @@ jobs:
             launcher/src/tv/dumbtv/home/Config.java launcher/src/tv/dumbtv/home/Library.java \
             launcher/src/tv/dumbtv/home/Recent.java launcher/tests/FocusColorTest.java
           java -cp "/tmp/host:$jar" tv.dumbtv.home.FocusColorTest
+          javac -d /tmp/host -cp "$jar" launcher/src/tv/dumbtv/home/Art.java \
+            launcher/tests/ArtTest.java
+          java -cp "/tmp/host:$jar" tv.dumbtv.home.ArtTest
           javac -d /tmp/host -cp "/tmp/host:$jar" launcher/src/tv/dumbtv/home/Recent.java \
             launcher/tests/RecentTest.java
           java -cp "/tmp/host:$jar" tv.dumbtv.home.RecentTest

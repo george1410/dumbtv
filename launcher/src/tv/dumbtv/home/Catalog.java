@@ -56,17 +56,27 @@ final class Catalog {
     }
 
     /**
-     * Loads a banner, plus an icon for Afterglow or when there is no banner. A {@code replacement}
-     * (an icon picked for the app, or the icon pack's match) is used instead of the app's own
-     * art: a wide one fills the tile like a banner, any other is drawn as the icon above the
-     * name. Slow: off the UI thread.
+     * Loads a banner, plus an icon for Afterglow, when there is no banner, or when the banner
+     * is a splash still. A {@code replacement} (an icon picked for the app, or the icon pack's
+     * match) is used instead of the app's own art: a wide one fills the tile like a banner, any
+     * other is drawn as the icon above the name. Slow: off the UI thread.
      */
     static void art(PackageManager pm, Item it, boolean cornerIcon, Drawable replacement) {
         if (it.info == null) return;
-        boolean wide = replacement != null && isWide(replacement);
-        it.banner = wide ? replacement : replacement == null ? it.info.loadBanner(pm) : null;
-        it.icon = replacement != null && !wide ? replacement
-                : it.banner == null || cornerIcon ? it.info.loadIcon(pm) : null;
+        if (replacement != null) {
+            boolean wide = isWide(replacement);
+            it.banner = wide ? Art.prepare(replacement) : null;
+            it.icon = wide ? (cornerIcon ? it.info.loadIcon(pm) : null) : replacement;
+            return;
+        }
+        Drawable banner = it.info.loadBanner(pm);
+        Drawable icon = null;
+        if (banner == null || cornerIcon || !Art.usableWide(banner)) {
+            icon = it.info.loadIcon(pm);
+        }
+        it.banner = Art.prepare(Art.banner(banner, icon));
+        it.icon = cornerIcon || it.banner == null
+                ? (icon != null ? icon : it.info.loadIcon(pm)) : null;
     }
 
     /** TV banners are 16:9; anything clearly wider than tall is drawn across the whole tile. */

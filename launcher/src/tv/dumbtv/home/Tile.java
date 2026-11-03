@@ -24,6 +24,7 @@ final class Tile extends View {
     private final boolean labelAlways, labelOnFocus;
     private final float radius, stroke;
     private final RectF card = new RectF();
+    private final int[] art = new int[4];
     private final Path clip = new Path();
     private final Path arrow = new Path();
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -113,8 +114,12 @@ final class Tile extends View {
         if (afterglow != null) {
             afterglow.draw(canvas, icon, cardW, cardH);
         } else if (banner != null) {
-            banner.setBounds(0, 0, cardW, cardH);
+            Art.cover(art, banner.getIntrinsicWidth(), banner.getIntrinsicHeight(), cardW, cardH);
+            int left = art[0], top = art[1];
+            banner.setBounds(0, 0, art[2] - left, art[3] - top);
+            canvas.translate(left, top);
             banner.draw(canvas);
+            canvas.translate(-left, -top);
         } else if (icon != null) {
             int size = cardH * 46 / 100;
             int left = (cardW - size) / 2, top = cardH * 12 / 100;

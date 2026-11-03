@@ -424,6 +424,7 @@ Delete both to stop.
 |---|---|
 | `src/.../Home.java` | the home screen: clock, Apps row, Inputs row, tile menu, move mode |
 | `src/.../Tile.java` | one tile, drawn in a single `onDraw`: banner or icon, focus ring |
+| `src/.../Art.java` | which drawable fills a tile, and cover-crop so square banners are not stretched |
 | `src/.../Grid.java` | the grid layout |
 | `src/.../FocusColor.java` | the colour for the adaptive backgrounds |
 | `src/.../Catalog.java` | which apps and inputs exist, and their order |
@@ -446,6 +447,7 @@ Delete both to stop.
 | `version.env` | the version and the release's SHA-256, read by the three scripts |
 | `release-check.sh` | checks that the version, the built APK and the GitHub release agree |
 | `tests/FocusColorTest.java` | host-side test for `FocusColor`, run by CI |
+| `tests/ArtTest.java` | host-side test for banner occupancy and cover-crop, run by CI |
 | `tests/RecentTest.java` | host-side test for the Recently used order, run by CI |
 | `tests/LibraryTest.java` | host-side test for `library.conf` parsing, run by CI |
 | `tests/ConfigTest.java` | file import and failed-write recovery tests, run by CI |
