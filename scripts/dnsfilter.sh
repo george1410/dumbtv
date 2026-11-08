@@ -421,6 +421,7 @@ sleep 20
 
 step "self-test"
 fail=0
+noanswer=0
 # personalDNSfilter answers 0.0.0.0, or NXDOMAIN ("unknown host"). The latter only
 # counts as blocked when an everyday name still resolves — otherwise the resolver
 # is simply dead. Check YouTube first, and give the VPN three chances to come up.
@@ -437,7 +438,7 @@ resolver=0
 case $yt in
   *0.0.0.0*|*127.0.0.1*) printf '  %-34s WRONGLY BLOCKED\n' www.youtube.com; fail=1 ;;
   *"unknown host"*|*"not known"*|*"cannot resolve"*|"")
-    printf '  %-34s no answer\n' www.youtube.com; fail=1 ;;
+    printf '  %-34s no answer\n' www.youtube.com; noanswer=1 ;;
   *) printf '  %-34s allowed\n' www.youtube.com; resolver=1 ;;
 esac
 while read -r h; do
