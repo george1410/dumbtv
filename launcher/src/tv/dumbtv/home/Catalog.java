@@ -5,11 +5,13 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Resources;
 import android.graphics.drawable.Drawable;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
 import android.text.TextUtils;
+import android.util.DisplayMetrics;
 
 import java.text.Collator;
 import java.util.ArrayList;
@@ -74,11 +76,26 @@ final class Catalog {
         Drawable banner = it.info.loadBanner(pm);
         Drawable icon = null;
         if (banner == null || cornerIcon || !Art.usableWide(banner)) {
-            icon = it.info.loadIcon(pm);
+            icon = densityIcon(pm, it.info);
         }
-        it.banner = Art.prepare(Art.banner(banner, icon));
+        Drawable chosen = Art.banner(banner, icon);
+        if (chosen == null) chosen = icon;
+        it.banner = Art.prepare(chosen);
         it.icon = cornerIcon || it.banner == null
-                ? (icon != null ? icon : it.info.loadIcon(pm)) : null;
+                ? (icon != null ? icon : densityIcon(pm, it.info)) : null;
+    }
+
+    /** Prefer the xxxhdpi launcher icon so a letterboxed tile is not upscaled from mdpi. */
+    private static Drawable densityIcon(PackageManager pm, ActivityInfo ai) {
+        try {
+            Resources res = pm.getResourcesForApplication(ai.applicationInfo);
+            int id = ai.getIconResource();
+            if (id != 0) {
+                Drawable d = res.getDrawableForDensity(id, DisplayMetrics.DENSITY_XXXHIGH, null);
+                if (d != null) return d;
+            }
+        } catch (Exception ignored) {}
+        return ai.loadIcon(pm);
     }
 
     /** TV banners are 16:9; anything clearly wider than tall is drawn across the whole tile. */

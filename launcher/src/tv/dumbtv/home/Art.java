@@ -19,7 +19,8 @@ final class Art {
     /** Content that fills this much of the art is treated as a full-bleed card, not a logo. */
     static final float BLEED = 0.45f;
     private static final int SAMPLE = 96;
-    private static final int CARD_W = 320, CARD_H = 180;
+    private static final int CARD_W = 720, CARD_H = 405;
+    private static final int SRC_MAX = 1024;
     private static final int CORNER_DELTA = 18;
 
     private Art() {}
@@ -146,18 +147,29 @@ final class Art {
 
     @SuppressWarnings("deprecation")
     private static Drawable bitmap(Bitmap card) {
-        return new BitmapDrawable(null, card);
+        BitmapDrawable d = new BitmapDrawable(null, card);
+        d.setFilterBitmap(true);
+        return d;
     }
 
     private static Bitmap card(Drawable d) {
-        int iw = Math.max(1, d.getIntrinsicWidth()), ih = Math.max(1, d.getIntrinsicHeight());
+        int iw = d.getIntrinsicWidth(), ih = d.getIntrinsicHeight();
         int rw, rh;
-        if (iw >= ih) {
+        if (iw <= 0 || ih <= 0) {
             rw = CARD_W;
-            rh = Math.max(1, CARD_W * ih / iw);
+            rh = CARD_H;
         } else {
-            rh = CARD_W;
-            rw = Math.max(1, CARD_W * iw / ih);
+            rw = iw;
+            rh = ih;
+            if (rw > SRC_MAX || rh > SRC_MAX) {
+                if (rw >= rh) {
+                    rh = Math.max(1, SRC_MAX * ih / iw);
+                    rw = SRC_MAX;
+                } else {
+                    rw = Math.max(1, SRC_MAX * iw / ih);
+                    rh = SRC_MAX;
+                }
+            }
         }
         Bitmap src = raster(d, rw, rh);
         if (src == null) return null;

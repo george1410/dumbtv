@@ -18,6 +18,7 @@ final class BrandColors {
             case "com.amazon.firebat": return new int[] {0xFF006182, 0xFF006182};
             case "com.starz.starzplay.firetv": return new int[] {0xFF948C2C, 0xFF5C8F92, 0xFF008790};
             case "com.amazon.firetv.youtube": return new int[] {0xFF94001E, 0xFF941754};
+            case "uk.co.uktv.dave": return new int[] {0xFF0B1026, 0xFF0B1026};
             default: return null;
         }
     }
