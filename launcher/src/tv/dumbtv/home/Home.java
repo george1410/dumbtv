@@ -292,7 +292,6 @@ public final class Home extends Activity {
         card.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         card.setOnClickListener(v -> startActivity(new Intent(this, Live.class)));
         card.setOnFocusChangeListener((view, has) -> {
-            view.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(110).start();
             paintLive();
             if (has) focusBackground(null);
         });
@@ -684,14 +683,23 @@ public final class Home extends Activity {
         }
     }
 
-    /** Horizontal strip that keeps the focused child centered, with a short slide instead of a jump. */
+    /**
+     * Horizontal strip. App rows keep the focused tile centered; On Now only slides when a
+     * card would leave the screen, so left/right does not haul the whole row around.
+     */
     private final class StripScroll extends HorizontalScrollView {
         private final boolean arrowsMoveFocusOnly;
+        private final boolean centerFocused;
         private ValueAnimator slide;
 
         StripScroll(boolean arrowsMoveFocusOnly) {
+            this(arrowsMoveFocusOnly, true);
+        }
+
+        StripScroll(boolean arrowsMoveFocusOnly, boolean centerFocused) {
             super(Home.this);
             this.arrowsMoveFocusOnly = arrowsMoveFocusOnly;
+            this.centerFocused = centerFocused;
             setFocusable(false);
             setHorizontalScrollBarEnabled(false);
             setOverScrollMode(OVER_SCROLL_NEVER);
@@ -704,8 +712,15 @@ public final class Home extends Activity {
             if (getChildCount() == 0) return 0;
             int range = Math.max(0, getChildAt(0).getWidth()
                     - (getWidth() - getPaddingLeft() - getPaddingRight()));
-            int target = Math.max(0, Math.min(range, r.centerX() - getWidth() / 2));
-            return target - getScrollX();
+            if (centerFocused) {
+                int target = Math.max(0, Math.min(range, r.centerX() - getWidth() / 2));
+                return target - getScrollX();
+            }
+            int left = getScrollX() + getPaddingLeft();
+            int right = getScrollX() + getWidth() - getPaddingRight();
+            if (r.right > right) return Math.min(range, getScrollX() + (r.right - right)) - getScrollX();
+            if (r.left < left) return Math.max(0, getScrollX() - (left - r.left)) - getScrollX();
+            return 0;
         }
 
         @Override
@@ -1108,7 +1123,7 @@ public final class Home extends Activity {
         nowStrip.setClipChildren(false);
         nowStrip.setClipToPadding(false);
         nowStrip.setPadding(bleed, dp(10), bleed, dp(8));
-        HorizontalScrollView scroll = new StripScroll(true);
+        HorizontalScrollView scroll = new StripScroll(true, false);
         scroll.setPadding(edge - bleed, 0, edge - bleed, 0);
         scroll.addView(nowStrip, new FrameLayout.LayoutParams(WRAP, WRAP));
         block.addView(nowHeading);
