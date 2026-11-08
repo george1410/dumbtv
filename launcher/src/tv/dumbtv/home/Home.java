@@ -983,8 +983,11 @@ public final class Home extends Activity {
         smartHome = headerIcon(R.drawable.house, "Alexa Smart Home", v -> openSmartHome());
         chips.add(smartHome);
         head.addView(smartHome);
-        head.addView(chip(getString(R.string.options), R.drawable.chip_options, R.drawable.chip_options_mark,
-                v -> startActivity(new Intent(this, Options.class))));
+        ImageView options = headerIcon(R.drawable.gear, getString(R.string.options),
+                v -> startActivity(new Intent(this, Options.class)));
+        ((LinearLayout.LayoutParams) options.getLayoutParams()).leftMargin = dp(12);
+        chips.add(options);
+        head.addView(options);
         column.addView(head, new LinearLayout.LayoutParams(MATCH, WRAP));
 
         hero = new Hero(this, ui, io);
@@ -1062,51 +1065,6 @@ public final class Home extends Activity {
         return "on".equals(cfg.get(Config.LOCK));
     }
 
-    /**
-     * A chip in the corner. Options › Chip style picks its look: the text chip (the default), or
-     * a round icon button whose name shows next to the icon only while it has the focus, so the
-     * corner stays quiet and the remote still says where OK goes. {@code shape} and
-     * {@code mark} are the two layers {@link Ui#chipIcon} tints; {@link #apply} draws them.
-     */
-    private TextView chip(String label, int shape, int mark, View.OnClickListener click) {
-        TextView v = Ui.text(this, 14, Ui.TEXT, Ui.MEDIUM);
-        v.setTag(new int[] {shape, mark});
-        v.setContentDescription(label);
-        v.setGravity(Gravity.CENTER);
-        v.setFocusable(true);
-        v.setClickable(true);
-        v.setOnClickListener(click);
-        v.setOnFocusChangeListener((view, has) -> {
-            chipLook(v, has);
-            view.animate().scaleX(has ? 1.06f : 1f).scaleY(has ? 1.06f : 1f).setDuration(110).start();
-            if (has) focusBackground(null);
-        });
-        chipLook(v, false);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(WRAP, WRAP);
-        lp.leftMargin = dp(10);
-        lp.topMargin = dp(6);
-        v.setLayoutParams(lp);
-        chips.add(v);
-        return v;
-    }
-
-    private boolean iconChips() {
-        return "icons".equals(cfg.get(Config.CHIPS));
-    }
-
-    /** Text and padding for the chip style: the name always for text, on focus only for icons. */
-    private void chipLook(TextView c, boolean focused) {
-        if (!iconChips()) {
-            c.setText(c.getContentDescription());
-            c.setCompoundDrawablePadding(0);
-            c.setPadding(dp(18), dp(9), dp(18), dp(9));
-            return;
-        }
-        c.setText(focused ? c.getContentDescription() : "");
-        c.setCompoundDrawablePadding(focused ? dp(8) : 0);
-        c.setPadding(dp(10), dp(10), dp(focused ? 16 : 10), dp(10));
-    }
-
     private ImageView headerIcon(int drawable, String label, View.OnClickListener click) {
         ImageView v = new ImageView(this);
         v.setImageResource(drawable);
@@ -1166,18 +1124,8 @@ public final class Home extends Activity {
         applied = cfg.version();
         int accent = cfg.accent();
         boolean hide = locked();
-        boolean icons = iconChips();
         for (View c : chips) {
-            if (c instanceof TextView) {
-                TextView t = (TextView) c;
-                Ui.focusStyle(t, accent, 0x14FFFFFF, dp(icons ? 21 : 18));
-                int[] art = (int[]) t.getTag();
-                t.setCompoundDrawablesRelative(icons ? Ui.chipIcon(getDrawable(art[0]), getDrawable(art[1]),
-                        accent, dp(22)) : null, null, null, null);
-                chipLook(t, t.isFocused());
-            } else if (c instanceof ImageView) {
-                Ui.ghostIcon((ImageView) c, accent, dp(14));
-            }
+            if (c instanceof ImageView) Ui.ghostIcon((ImageView) c, accent, dp(14));
             c.setVisibility(hide ? View.GONE : View.VISIBLE);
         }
         if (smartHome != null && (hide || smartHomeIntent() == null)) {

@@ -4,9 +4,7 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.util.TypedValue;
 import android.widget.ImageView;
@@ -56,18 +54,6 @@ final class Ui {
         bg.addState(new int[0], round(idle, radius));
         v.setBackground(bg);
         v.setTextColor(focused(ink(accent), 0xD9FFFFFF));
-    }
-
-    /**
-     * A chip icon to go with {@link #focusStyle}: {@code shape} in the chip's text colour and
-     * {@code mark} in the accent, both turning the ink colour on the accent fill when focused.
-     */
-    static Drawable chipIcon(Drawable shape, Drawable mark, int accent, int size) {
-        shape.mutate().setTintList(focused(ink(accent), 0xD9FFFFFF));
-        mark.mutate().setTintList(focused(ink(accent), accent));
-        LayerDrawable d = new LayerDrawable(new Drawable[] {shape, mark});
-        d.setBounds(0, 0, size, size);
-        return d;
     }
 
     private static ColorStateList focused(int on, int off) {
