@@ -21,6 +21,8 @@ SERIAL=${SERIAL:-${ADB_SERIAL:-}}
 SDK=${SDK:-0}
 # 1 when the TV has `cmd package install-existing`, i.e. an uninstalled system app can come back.
 REINSTALL=${REINSTALL:-0}
+# 0 (default): Amazon OTA hosts are blocked. 1: they stay reachable.
+UPDATES=${UPDATES:-0}
 
 # Preferences written by scripts/configure.sh. Absent file = defaults: remove no
 # app, keep Prime Video and Alexa, PRIME=1, ALEXA=1, LAUNCHER=1, DNSFILTER=1.
@@ -34,12 +36,14 @@ load_conf() {
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
   DNS_UPSTREAM=${DNS_UPSTREAM:-}
+  UPDATES=${UPDATES:-0}
   [[ -f $CONF ]] && source "$CONF"
   KEEP_APPS=${KEEP_APPS:-}; REMOVE_EXTRA=${REMOVE_EXTRA:-}
   PRIME=${PRIME:-1}; ALEXA=${ALEXA:-1}; LAUNCHER=${LAUNCHER:-1}; DNSFILTER=${DNSFILTER:-1}
   SYSTEM_DNS=${SYSTEM_DNS:-0}
   FILTER_AUTOSTART=${FILTER_AUTOSTART:-1}
   DNS_UPSTREAM=${DNS_UPSTREAM:-}
+  UPDATES=${UPDATES:-0}
 }
 
 # What debloat.sh disables: the ads and tracking list, plus Alexa only with ALEXA=0.
@@ -55,9 +59,21 @@ compose_blocklist() {
     tr -d '\r' < "$1" | grep -v '^#'
     list_of "$DATA/blocklists/extra-hosts.txt"
     if [[ $ALEXA == 0 ]]; then list_of "$DATA/blocklists/alexa-hosts.txt"; fi
-  } | awk 'NF' | if [[ $PRIME == 1 ]]; then
-    grep -viE 'aiv-delivery|aiv-cdn|^device-messaging-na\.amazon\.com$' || true
-  else cat; fi
+    if [[ ${UPDATES:-0} == 0 ]]; then list_of "$DATA/blocklists/ota-hosts.txt"; fi
+  } | awk 'NF' | {
+    if [[ $PRIME == 1 ]]; then
+      grep -viE 'aiv-delivery|aiv-cdn|^device-messaging-na\.amazon\.com$' || true
+    else
+      cat
+    fi
+  } | {
+    # UPDATES=1: leave Amazon's update servers out even if the tracker feed named them.
+    if [[ ${UPDATES:-0} == 1 ]]; then
+      grep -viE 'softwareupdates\.amazon\.com|dubri19p4y5b\.cloudfront\.net|distro-download\.amazon\.com|amzdigital-a\.akamaihd\.net|amzdigitaldownloads\.edgesuite\.net' || true
+    else
+      cat
+    fi
+  }
 }
 
 # The downloaded tracker feed $1 is fit to push: at least FEED_MIN entries, every one a
@@ -77,6 +93,7 @@ expected_blocked() {
   list_of "$DATA/blocklists/verify-blocked.txt"
   if [[ $ALEXA == 0 ]]; then echo api.amazonalexa.com; fi
   if [[ $PRIME == 0 ]]; then echo device-messaging-na.amazon.com; fi
+  if [[ ${UPDATES:-0} == 0 ]]; then echo softwareupdates.amazon.com; fi
 }
 
 keep_pkg() {

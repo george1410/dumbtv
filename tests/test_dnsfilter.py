@@ -136,6 +136,14 @@ class RouteTest(unittest.TestCase):
         self.assertEqual(self.whitelist(28), ["androidAppWhiteList = <none>"])
         self.assertEqual(self.whitelist(30, "SYSTEM_DNS=1\n"), ["androidAppWhiteList = <none>"])
 
+    def test_fire_os_8_does_not_route_underlying_dns(self):
+        # Fire OS 8 reports 8.8.8.8; routing it into the DNS-only tunnel
+        # blackholes YouTube. Fire OS 7 still routes the underlying DNS.
+        seven = self.pushed_conf({"net.dns1": GATEWAY}, sdk=28)
+        eight = self.pushed_conf({"net.dns1": GATEWAY}, sdk=30)
+        self.assertIn("routeUnderlyingDNS = true", seven)
+        self.assertIn("routeUnderlyingDNS = false", eight)
+
 
 if __name__ == "__main__":
     unittest.main()

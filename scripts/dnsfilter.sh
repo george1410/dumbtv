@@ -67,6 +67,11 @@ if [[ $ALEXA == 1 ]]; then
 else
   note "alexa          blocked (data/blocklists/alexa-hosts.txt)"
 fi
+if [[ ${UPDATES:-0} == 1 ]]; then
+  note "amazon updates kept: softwareupdates.amazon.com stays reachable"
+else
+  note "amazon updates blocked (data/blocklists/ota-hosts.txt)"
+fi
 if [[ $DRY_RUN == 0 ]]; then confirm "Install the on-device DNS filter on $SERIAL?" || die "cancelled"; fi
 
 step "blocklist"
@@ -121,13 +126,17 @@ if [[ $DRY_RUN == 0 ]]; then
   else
     fb="\\#router; [$GW]::53::UDP"
   fi
+  # Fire OS 8 reports 8.8.8.8 as DNS. Routing it into a DNS-only tunnel
+  # blackholes every packet to 8.8.8.8, YouTube included.
+  underlying=true
+  [[ $SDK -ge 30 ]] && underlying=false
   sed -i.dumbtv \
     -e 's|^filterAutoUpdateURL = |#filterAutoUpdateURL = |' \
     -e 's|^previousAutoUpdateURL = .*|previousAutoUpdateURL = |' \
     -e 's|^detectDNS = .*|detectDNS = false|' \
     -e "s|^fallbackDNS = .*|fallbackDNS = $fb|" \
     -e "s|^routeIPs =.*|routeIPs = $ROUTES|" \
-    -e 's|^routeUnderlyingDNS = .*|routeUnderlyingDNS = true|' \
+    -e "s|^routeUnderlyingDNS = .*|routeUnderlyingDNS = $underlying|" \
     -e 's|^showInitialInfoPopUp = .*|showInitialInfoPopUp = false|' \
     -e 's|^reloadIntervalDays = .*|reloadIntervalDays = 3650|' \
     -e 's|^filterHostsFile = .*|filterHostsFile = FILTERHOSTS.TXT|' \
@@ -151,7 +160,7 @@ if [[ $DRY_RUN == 0 ]]; then
     WHITELIST="${WHITELIST:+$WHITELIST,}com.amazon.firebat,com.amazon.avod"
   fi
   sed -i.dumbtv2 "s|^androidAppWhiteList = .*|androidAppWhiteList = ${WHITELIST:-<none>}|" "$CONF_OUT"
-  for want in '^#filterAutoUpdateURL' '^detectDNS = false' '^routeUnderlyingDNS = true' '^previousAutoUpdateURL = $'; do
+  for want in '^#filterAutoUpdateURL' '^detectDNS = false' "^routeUnderlyingDNS = $underlying" '^previousAutoUpdateURL = $'; do
     grep -Eq "$want" "$CONF_OUT" || die "config template changed upstream (missing: $want) — update scripts/dnsfilter.sh"
   done
   grep -Fqx "androidAppWhiteList = ${WHITELIST:-<none>}" "$CONF_OUT" ||
@@ -245,8 +254,17 @@ configure_in_app() {
   name=dumbtv-blocklist-$(date +%s).txt
   push_to_media "$name" || { note "could not put the list in $MEDIA"; return 1; }
   entries=$(grep -c . "$LIST")
-  lines=("detectDNS = false" "fallbackDNS = ${upstream:-[$GW]::53::UDP}" "routeIPs = $ROUTES"
-    "routeUnderlyingDNS = true" "reloadIntervalDays = 3650" "filterHostsFile = FILTERHOSTS.TXT"
+  # Same fallbackDNS as the file patch above. #router is only a label; the
+  # resolver is [$GW]::53::UDP. Do not set routeUnderlyingDNS here: Fire OS 8
+  # reports 8.8.8.8 as DNS, and routing that IP into a DNS-only tunnel
+  # blackholes YouTube (every packet to 8.8.8.8, not just UDP 53).
+  if [[ -n $upstream ]]; then
+    fb=$upstream
+  else
+    fb="#router; [$GW]::53::UDP"
+  fi
+  lines=("detectDNS = false" "fallbackDNS = $fb" "routeIPs = $ROUTES"
+    "routeUnderlyingDNS = false" "reloadIntervalDays = 3650" "filterHostsFile = FILTERHOSTS.TXT"
     "filterAutoUpdateURL = file:///storage/emulated/0/Android/media/$PKG/$name"
     "filterAutoUpdateURL_IDs = dumbtv" "filterAutoUpdateURL_categories = dumbtv"
     "filterAutoUpdateURL_switchs = true")
@@ -403,47 +421,38 @@ sleep 20
 
 step "self-test"
 fail=0
-# The VPN takes a moment to come up after boot; give it three chances before
-# calling it broken.
-line=""
+# personalDNSfilter answers 0.0.0.0, or NXDOMAIN ("unknown host"). The latter only
+# counts as blocked when an everyday name still resolves — otherwise the resolver
+# is simply dead. Check YouTube first, and give the VPN three chances to come up.
+yt=""
 for attempt in 1 2 3; do
-  line=$(dev "ping -c1 -W2 softwareupdates.amazon.com" | head -1)
-  case $line in
-    *0.0.0.0*|*127.0.0.1*) break ;;
-    *) [[ $attempt -lt 3 ]] && sleep 10 ;;
+  yt=$(dev "ping -c1 -W2 www.youtube.com" | head -1)
+  case $yt in
+    *0.0.0.0*|*127.0.0.1*|*"unknown host"*|*"not known"*|*"cannot resolve"*|"")
+      [[ $attempt -lt 3 ]] && sleep 10 ;;
+    *) break ;;
   esac
 done
-case $line in
-  *0.0.0.0*|*127.0.0.1*) ;;
-  *) printf '  %-34s NOT BLOCKED after 30s: %s\n' softwareupdates.amazon.com "$line"; fail=1 ;;
+resolver=0
+case $yt in
+  *0.0.0.0*|*127.0.0.1*) printf '  %-34s WRONGLY BLOCKED\n' www.youtube.com; fail=1 ;;
+  *"unknown host"*|*"not known"*|*"cannot resolve"*|"")
+    printf '  %-34s no answer\n' www.youtube.com; fail=1 ;;
+  *) printf '  %-34s allowed\n' www.youtube.com; resolver=1 ;;
 esac
 while read -r h; do
   line=$(dev "ping -c1 -W2 $h" | head -1)
   case $line in
     *0.0.0.0*|*127.0.0.1*) printf '  %-34s blocked\n' "$h" ;;
+    *"unknown host"*|*"not known"*|*"cannot resolve"*|"")
+      if [[ $resolver == 1 ]]; then
+        printf '  %-34s blocked (NXDOMAIN)\n' "$h"
+      else
+        printf '  %-34s no answer from the resolver\n' "$h"; fail=1
+      fi ;;
     *) printf '  %-34s NOT BLOCKED: %s\n' "$h" "$line"; fail=1 ;;
   esac
 done < <(expected_blocked)
-
-# An everyday host has to resolve, not merely escape the block: "unknown host" means the
-# filter forwards to a resolver the TV cannot reach, and every app that needs a name breaks.
-noanswer=0
-for attempt in 1 2 3; do
-  line=$(dev "ping -c1 -W2 www.youtube.com" | head -1)
-  case $line in
-    "") adb_reconnect ;;
-    *"unknown host"*|*"not known"*|*"cannot resolve"*) ;;
-    *) break ;;
-  esac
-  [[ $attempt -lt 3 ]] && sleep 10
-done
-case $line in
-  *0.0.0.0*|*127.0.0.1*) printf '  %-34s WRONGLY BLOCKED\n' www.youtube.com; fail=1 ;;
-  *"unknown host"*|*"not known"*|*"cannot resolve"*)
-    printf '  %-34s NO ANSWER from %s\n' www.youtube.com "${DNS_UPSTREAM:-the router ($GW)}"; noanswer=1 ;;
-  "") printf '  %-34s no reply from the TV\n' www.youtube.com; fail=1 ;;
-  *) printf '  %-34s allowed\n' www.youtube.com ;;
-esac
 
 if [[ $fail == 1 ]]; then
   note "the filter is not in the DNS path. Do not force-stop the app — reboot the TV,"

@@ -66,13 +66,15 @@ The list is built on your computer and pushed to the TV as one file:
 
 - the [HaGeZi](https://github.com/hagezi/dns-blocklists) Amazon tracker list,
   downloaded fresh each time,
-- `data/blocklists/extra-hosts.txt`: telemetry, update and ad servers read out of
-  Fire OS's own system apps,
+- `data/blocklists/extra-hosts.txt`: telemetry and ad servers read out of Fire OS
+  system apps, plus UK catch-up ad CDNs (ITVX, Channel 4, My5),
+- `data/blocklists/ota-hosts.txt`, only with `UPDATES=0` (the default),
 - `data/blocklists/alexa-hosts.txt`, only with `ALEXA=0`.
 
 With `PRIME=1` (the default), Prime Video's video CDN and Amazon's push service
-are left out, because Prime Video does not start without them. The TV never
-downloads a list itself, so it cannot end up with a half-written one.
+are left out, because Prime Video does not start without them. With `UPDATES=1`
+Amazon's firmware servers stay reachable. The TV never downloads a list itself,
+so it cannot end up with a half-written one.
 
 Three settings keep the filter in the path:
 
@@ -89,7 +91,9 @@ Three settings keep the filter in the path:
   the always-on setting at boot.
 
 On Fire OS 8 adb cannot write the app's folder, so the list goes to
-`/sdcard/Android/media/` and you select it in the app once.
+`/sdcard/Android/media/` and the settings are typed into the app. That path
+leaves `routeUnderlyingDNS` off: Fire OS 8 reports 8.8.8.8 as DNS, and routing
+it into a DNS-only tunnel blackholes YouTube.
 
 ## 5. The home screen
 

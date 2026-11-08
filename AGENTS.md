@@ -103,7 +103,9 @@ not one of the questions: leave it unset unless the owner names resolver IPs.
 Empty means the filter forwards unknown names to the router. If the self-test says
 `NO ANSWER`, the TV cannot use the router for DNS (an IoT network that only allows
 its own resolver, a Pi-hole): show the owner what `DnsAddresses` the network hands
-out and set that one once they confirm it.
+out and set that one once they confirm it. `--updates` is not a question either:
+default 0 blocks Amazon's firmware servers. Pass `--updates 1` only if the owner
+wants the TV to keep taking Amazon updates.
 
 Record the answers:
 
@@ -164,7 +166,7 @@ pictures in a folder outside the repository, never in a commit, and run
 `verify.sh` prints a line per check and ends with `all checks passed`:
 
 ```
-ok         softwareupdates.amazon.com   blocked
+ok         arcus-uswest.amazon.com      blocked
 ok         www.youtube.com              resolves
 ok home bound, front is tv.dumbtv.home/.Home
 packages 51 disabled

@@ -46,6 +46,7 @@ class ConfigureKeepTest(unittest.TestCase):
         self.assertIn("ALEXA=1", conf)
         self.assertIn("PRIME=1", conf)
         self.assertIn("YOUTUBE=0", conf)
+        self.assertIn("UPDATES=0", conf)
 
     def test_flags_answer_every_question(self):
         result, conf = self.configure(
@@ -55,6 +56,11 @@ class ConfigureKeepTest(unittest.TestCase):
         for line in ("PRIME=0", "ALEXA=0", "LAUNCHER=0", "DNSFILTER=0",
                      "YOUTUBE=1", "SYSTEM_DNS=1"):
             self.assertIn(line, conf)
+
+    def test_updates_flag_is_saved(self):
+        result, conf = self.configure("--updates", "1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("UPDATES=1", conf)
 
     def test_a_yes_no_flag_takes_only_0_or_1(self):
         result, conf = self.configure("--youtube", "yes")

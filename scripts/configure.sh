@@ -4,7 +4,7 @@
 # unless it is named, and Prime Video and Alexa keep working.
 # Usage: ./scripts/configure.sh [--remove "pkg pkg"] [--keep "pkg pkg"] [--prime 0|1]
 #          [--alexa 0|1] [--launcher 0|1] [--dnsfilter 0|1] [--youtube 0|1]
-#          [--system-dns 0|1] [--dns-upstream "ip ip"] [-y] [--dry-run]
+#          [--system-dns 0|1] [--updates 0|1] [--dns-upstream "ip ip"] [-y] [--dry-run]
 # A flag answers its question without asking; -y takes the default for the rest.
 # --dns-upstream is optional. Unset, the filter keeps using the router.
 set -uo pipefail
@@ -12,6 +12,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
 KEEP_ARG=""; REMOVE_ARG=""; ALEXA_ARG=""; SYSTEM_DNS_ARG=""
 PRIME_ARG=""; LAUNCHER_ARG=""; DNSFILTER_ARG=""; YOUTUBE_ARG=""
+UPDATES_ARG=""
 DNS_UPSTREAM_SET=0; DNS_UPSTREAM_ARG=""
 flag01() { case $2 in 0|1) ;; *) die "$1 takes 0 or 1, got '$2'" ;; esac; }
 while [[ $# -gt 0 ]]; do
@@ -24,6 +25,7 @@ while [[ $# -gt 0 ]]; do
     --dnsfilter)  flag01 "$1" "${2:-}"; DNSFILTER_ARG=$2; shift 2 ;;
     --youtube)    flag01 "$1" "${2:-}"; YOUTUBE_ARG=$2; shift 2 ;;
     --system-dns) flag01 "$1" "${2:-}"; SYSTEM_DNS_ARG=$2; shift 2 ;;
+    --updates)    flag01 "$1" "${2:-}"; UPDATES_ARG=$2; shift 2 ;;
     --dns-upstream)
       [[ $# -ge 2 ]] || die '--dns-upstream takes resolver IPs; pass "" to clear them'
       DNS_UPSTREAM_SET=1; DNS_UPSTREAM_ARG=$2; shift 2 ;;
@@ -121,11 +123,20 @@ fi
 DNS_UPSTREAM=$(printf '%s\n' "$DNS_UPSTREAM" | awk '{$1=$1; print}')
 fallback_dns >/dev/null || exit 1
 
+# Not an interview question. Default 0: Amazon OTA stays blocked. 1 leaves the
+# update servers reachable. Re-running without the flag keeps the saved answer.
+if [[ -n $UPDATES_ARG ]]; then
+  UPDATES=$UPDATES_ARG
+elif [[ -f $CONF ]]; then
+  UPDATES=$(sed -n 's/^UPDATES=//p' "$CONF" | tail -1)
+fi
+UPDATES=${UPDATES:-0}
+
 if [[ $DRY_RUN == 1 ]]; then
   step "would write $CONF"
   note "REMOVE_EXTRA=\"$EXTRA\""
   note "KEEP_APPS=\"$KEEP\""
-  note "PRIME=$PRIME ALEXA=$ALEXA LAUNCHER=$LAUNCHER DNSFILTER=$DNSFILTER SYSTEM_DNS=$SYSTEM_DNS YOUTUBE=$YOUTUBE"
+  note "PRIME=$PRIME ALEXA=$ALEXA LAUNCHER=$LAUNCHER DNSFILTER=$DNSFILTER SYSTEM_DNS=$SYSTEM_DNS YOUTUBE=$YOUTUBE UPDATES=$UPDATES"
   note "DNS_UPSTREAM=\"${DNS_UPSTREAM:-}\""
   exit 0
 fi
@@ -141,6 +152,7 @@ LAUNCHER=$LAUNCHER
 DNSFILTER=$DNSFILTER
 SYSTEM_DNS=$SYSTEM_DNS
 YOUTUBE=$YOUTUBE
+UPDATES=$UPDATES
 FILTER_AUTOSTART=$FILTER_AUTOSTART
 DNS_UPSTREAM="$DNS_UPSTREAM"
 EOF_CONF
@@ -148,7 +160,7 @@ EOF_CONF
 # Prove the file before anyone sources it.
 # shellcheck disable=SC1090
 source "$CONF"
-for v in PRIME ALEXA LAUNCHER DNSFILTER SYSTEM_DNS YOUTUBE FILTER_AUTOSTART; do
+for v in PRIME ALEXA LAUNCHER DNSFILTER SYSTEM_DNS YOUTUBE UPDATES FILTER_AUTOSTART; do
   case ${!v} in 0|1) ;; *) die "$v must be 0 or 1 in $CONF" ;; esac
 done
 
@@ -156,6 +168,6 @@ step "saved"
 note "${CONF#$ROOT/}"
 note "remove:  ${EXTRA:-nothing}"
 note "keep:    ${KEEP:-nothing extra}"
-note "prime=$PRIME alexa=$ALEXA launcher=$LAUNCHER dnsfilter=$DNSFILTER system_dns=$SYSTEM_DNS youtube=$YOUTUBE"
+note "prime=$PRIME alexa=$ALEXA launcher=$LAUNCHER dnsfilter=$DNSFILTER system_dns=$SYSTEM_DNS youtube=$YOUTUBE updates=$UPDATES"
 note "dns upstream: ${DNS_UPSTREAM:-the router}"
 note "change any answer later by running this again"

@@ -10,13 +10,7 @@
 # Prime Video: with PRIME=1 (the default) dnsfilter.sh leaves aiv-delivery.net,
 # aiv-cdn.net and device-messaging-na.amazon.com out of the filter.
 # Alexa's voice servers are in alexa-hosts.txt and are blocked only with ALEXA=0.
-
-# OTA: nothing can check for or download an update
-softwareupdates.amazon.com
-dubri19p4y5b.cloudfront.net
-distro-download.amazon.com
-amzdigital-a.akamaihd.net
-amzdigitaldownloads.edgesuite.net
+# OTA hosts live in ota-hosts.txt and are blocked only with UPDATES=0 (the default).
 
 # Amazon Device Messaging, a push channel. Prime Video does not start without it
 # (closed PR #54), so it is blocked only with PRIME=0.
@@ -56,3 +50,16 @@ aax-eu.amazon-adsystem.com
 aax-fe.amazon-adsystem.com
 amazon-adsystem.com
 mads.amazon.com
+
+# UK catch-up ads (ITVX, Channel 4, My5). These apps still need Freewheel
+# (fwmrm.net) or the player refuses to start; do not add that host.
+# Conviva, Amplitude and *.content.itv.com stay off this list: they are not
+# ad CDNs and blocking them has broken playback for people.
+tom.itv.com
+toots.itv.com
+toots-a.akamaihd.net
+cpt.itv.com
+cdn.http.anno.channel4.com
+webstats.channel4.com
+monitor.channel4.com
+c5ads.ott.skymedia.co.uk

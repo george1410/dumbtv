@@ -88,9 +88,18 @@ class BlocklistTest(unittest.TestCase):
         default = lib("expected_blocked", PRIME="1", ALEXA="1")
         self.assertNotIn("api.amazonalexa.com", default)
         self.assertNotIn("device-messaging-na.amazon.com", default)
+        self.assertIn("softwareupdates.amazon.com", default)
         strict = lib("expected_blocked", PRIME="0", ALEXA="0")
         self.assertIn("api.amazonalexa.com", strict)
         self.assertIn("device-messaging-na.amazon.com", strict)
+
+    def test_updates_kept_leaves_ota_out(self):
+        hosts = lib("compose_blocklist", PRIME="1", ALEXA="1", UPDATES="1")
+        self.assertNotIn("softwareupdates.amazon.com", hosts)
+        self.assertNotIn("amzdigital-a.akamaihd.net", hosts)
+        self.assertIn("tom.itv.com", hosts)
+        blocked = lib("expected_blocked", PRIME="1", ALEXA="1", UPDATES="1")
+        self.assertNotIn("softwareupdates.amazon.com", blocked)
 
 
 if __name__ == "__main__":

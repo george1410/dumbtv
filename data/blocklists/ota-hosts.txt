@@ -1,0 +1,7 @@
+# Amazon firmware check and download. Blocked by default (UPDATES=0). With
+# UPDATES=1 they stay reachable so the TV can still take Amazon updates.
+softwareupdates.amazon.com
+dubri19p4y5b.cloudfront.net
+distro-download.amazon.com
+amzdigital-a.akamaihd.net
+amzdigitaldownloads.edgesuite.net

@@ -34,7 +34,10 @@ else
       *)
         allowed_rows="${allowed_rows}$(printf '%-10s %-38s %s\n' ok "$h" 'resolves')"$'\n'; resolver=1 ;;
     esac
-  done < <(list_of "$DATA/blocklists/verify-allowed.txt")
+  done < <(
+    list_of "$DATA/blocklists/verify-allowed.txt"
+    if [[ ${UPDATES:-0} == 1 ]]; then echo softwareupdates.amazon.com; fi
+  )
 
   while read -r h; do
     line=$(dev "ping -c1 -W2 $h" | head -1)

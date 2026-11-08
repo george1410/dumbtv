@@ -7,7 +7,8 @@
 #   aiv-delivery / aiv-cdn lines before pushing, so playback still works.
 #
 # Bundled here (MIT, hand-written from APK strings):
-#   extra-hosts.txt     OTA, arcus, unagi-zaz, Alexa voice, analytics
+#   extra-hosts.txt     arcus, unagi-zaz, Amazon ads, UK catch-up ads
+#   ota-hosts.txt       Amazon firmware (omitted when UPDATES=1)
 #   verify-blocked.txt  hosts verify.sh asserts are blocked
 #   verify-allowed.txt  hosts verify.sh asserts still resolve
 #

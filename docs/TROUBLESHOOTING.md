@@ -355,11 +355,12 @@ packages` line lists cleanup packages that are on again, and a `warn settings` l
 lists ad-tracking and usage settings back at Amazon's values. `./scripts/debloat.sh -y`
 puts them back. The updater itself is protected, so
 the DNS filter is what keeps updates away: it blocks `softwareupdates.amazon.com`
-and the download servers. If you turned the filter off or factory-reset the TV,
-run `./scripts/all.sh` again.
+and the download servers, unless `UPDATES=1`. If you turned the filter off or
+factory-reset the TV, run `./scripts/all.sh` again.
 
-To install an update on purpose: `./scripts/restore.sh`, let the TV update, then
-run `./scripts/all.sh`.
+To install an update on purpose: `./scripts/configure.sh --updates 1` then
+`./scripts/dnsfilter.sh`, or `./scripts/restore.sh`, let the TV update, then run
+`./scripts/all.sh`.
 
 ## Fire OS 6
 
