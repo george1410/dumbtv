@@ -49,9 +49,9 @@ Undo: `./launcher/install.sh --undo` gives HOME back to Amazon's launcher.
 | Remote | Does |
 |---|---|
 | OK | open the app, or switch to the input |
-| Hold OK, or ☰ Menu | Move, Rename, Icon (with an icon pack chosen), Hide, App info |
+| Hold OK, or ☰ Menu | on an app: Move, Rename, Icon (with an icon pack chosen), Hide, App info. On an On Now card: Move, Remove |
 | With Child lock on: hold ☰ Menu for 3 s | Options |
-| Move mode | ◀ ▶ moves the tile, ▲ ▼ moves it a line in the grid, any other key drops it |
+| Move mode | ◀ ▶ moves the app tile or On Now card; ▲ ▼ moves an app a line in the grid; any other key drops it |
 | Up from the top row | Options and Settings |
 | Back on the home screen | jump to the first tile |
 | On an input: Back | back to the home screen |
@@ -83,7 +83,7 @@ you open an app. On Fire OS 7 and 8 the Settings button opens Amazon's settings 
 | Open inputs with | Automatic, the TV's app, dumbtv home (see below) |
 | Background | black, graphite, midnight, image, adaptive, adaptive tint |
 | Image dim, wallpaper rotation | for image backgrounds |
-| Child lock | off, on: hides Options and Settings and turns off Hold OK and ☰ Menu on tiles, so the home screen only opens apps and inputs (see below) |
+| Child lock | off, on: hides Options and Settings and turns off Hold OK and ☰ Menu on tiles and On Now cards, so the home screen only opens apps and inputs (see below) |
 | App tile style | original (default), Afterglow: uppercase names inside the tile, a brand-color fade into black, a grayscale installed app icon in the corner, and a thin focus border |
 | Chip style | text (default), icons: Options and Settings become round icon buttons whose knobs and gear hub take the accent color; the name shows next to the icon while it has the focus |
 | Library banner | shown (default), hidden. It only appears once a library folder holds titles (see below) |
@@ -136,8 +136,9 @@ separate choices.
 ## Child lock
 
 For a TV children use. **Options › Child lock › On** hides the Options and Settings
-buttons and turns off Hold OK and ☰ Menu on tiles, so nobody can move, rename or hide
-a tile, or reach App info, from the home screen. Apps and inputs open as usual.
+buttons and turns off Hold OK and ☰ Menu on tiles and On Now cards, so nobody can
+move, rename or hide a tile, reorder On Now, or reach App info, from the home screen.
+Apps and inputs open as usual.
 
 To change something, **hold ☰ Menu for 3 seconds** on the home screen: Options opens,
 and Child lock › Off brings everything back. A short press does nothing. Over adb,

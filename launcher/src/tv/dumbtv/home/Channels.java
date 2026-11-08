@@ -106,6 +106,10 @@ final class Channels {
     static void toggleFavourite(Config cfg, Channel ch) {
         List<String> names = favouriteNames(cfg);
         if (!names.remove(ch.name)) names.add(ch.name);
+        saveFavourites(cfg, names);
+    }
+
+    static void saveFavourites(Config cfg, List<String> names) {
         cfg.setList(FAVOURITES, names);
     }
 

@@ -15,6 +15,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.media.tv.TvInputManager;
 import android.net.Uri;
 import android.os.Build;
@@ -95,7 +96,7 @@ public final class Home extends Activity {
     private Hero hero;
     private int libraryGeneration;
     private Map<String, Long> recent = new HashMap<>();
-    private Tile moving;
+    private View moving;
     private String wallKey;
     private String backgroundMode;
     private ValueAnimator colorAnimation;
@@ -210,8 +211,13 @@ public final class Home extends Activity {
             setPadding(dp(16), dp(14), dp(16), dp(14));
             setFocusable(true);
             setClickable(true);
+            setLongClickable(true);
             setDescendantFocusability(FOCUS_BLOCK_DESCENDANTS);
             setOnClickListener(v -> openChannel(ch));
+            setOnLongClickListener(v -> {
+                if (!locked()) nowMenu(this);
+                return true;
+            });
             TextView via = Ui.text(Home.this, 11, Ui.FAINT, Ui.MEDIUM);
             via.setText(ch.name.toUpperCase(Locale.ROOT));
             via.setLetterSpacing(0.06f);
@@ -243,12 +249,21 @@ public final class Home extends Activity {
             });
         }
 
+        private boolean moving;
+
+        void setMoving(boolean on) {
+            moving = on;
+            paint();
+        }
+
         void paint() {
             int accent = cfg.accent();
-            boolean has = isFocused();
-            setBackground(has
+            boolean has = isFocused() || moving;
+            GradientDrawable bg = has
                     ? Ui.round((accent & 0x00FFFFFF) | 0x73000000, dp(14))
-                    : Ui.round(0xFF16171C, dp(14)));
+                    : Ui.round(0xFF16171C, dp(14));
+            if (moving) bg.setStroke(dp(3), 0xFFFFFFFF, dp(10), dp(7));
+            setBackground(bg);
             name.setTextColor(Ui.TEXT);
             prog.setTextColor(has ? Ui.TEXT : Ui.MUTED);
             next.setTextColor(has ? Ui.MUTED : Ui.FAINT);
@@ -533,7 +548,7 @@ public final class Home extends Activity {
                 case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
                     // In a grid, up and down move the tile a whole line; a strip has no lines.
-                    if (moving.getParent() instanceof Grid) {
+                    if (moving instanceof Tile && moving.getParent() instanceof Grid) {
                         int cols = ((Grid) moving.getParent()).columns();
                         shift(e.getKeyCode() == KeyEvent.KEYCODE_DPAD_UP ? -cols : cols);
                     }
@@ -560,6 +575,7 @@ public final class Home extends Activity {
         if (code == KeyEvent.KEYCODE_MENU) {
             View f = getCurrentFocus();
             if (f instanceof Tile) menu((Tile) f);
+            else if (f instanceof NowCard) nowMenu((NowCard) f);
             else startActivity(new Intent(this, Options.class));
             return true;
         }
@@ -1146,6 +1162,7 @@ public final class Home extends Activity {
     }
 
     private void apply() {
+        if (moving != null) stopMoving();
         applied = cfg.version();
         int accent = cfg.accent();
         boolean hide = locked();
@@ -1404,7 +1421,7 @@ public final class Home extends Activity {
     }
 
     private void render(Row row) {
-        if (moving != null && moving.kind.equals(row.kind)) stopMoving();
+        if (moving instanceof Tile && ((Tile) moving).kind.equals(row.kind)) stopMoving();
         View focused = getCurrentFocus();
         String keep = focused instanceof Tile && ((Tile) focused).kind.equals(row.kind)
                 ? ((Tile) focused).item.id : null;
@@ -1846,6 +1863,7 @@ public final class Home extends Activity {
                             }
                             moving = t;
                             t.setMoving(true);
+                            bumpIdle();
                             break;
                         case R.string.tile_rename:
                             rename(t);
@@ -1872,6 +1890,24 @@ public final class Home extends Activity {
     private void appInfo(Tile t) {
         launch(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                 Uri.fromParts("package", t.item.id, null)), null);
+    }
+
+    private void nowMenu(NowCard card) {
+        new AlertDialog.Builder(this, Ui.DIALOG)
+                .setTitle(card.channel.name)
+                .setItems(new String[] {"Move", "Remove from On Now"}, (d, which) -> {
+                    if (which == 0) {
+                        if (card.getParent() == null) return;
+                        moving = card;
+                        card.setMoving(true);
+                        bumpIdle();
+                    } else {
+                        Channels.toggleFavourite(cfg, card.channel);
+                        fillNow();
+                        Toast.makeText(this, "Removed from On Now", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .show();
     }
 
     private void rename(Tile t) {
@@ -1905,6 +1941,8 @@ public final class Home extends Activity {
         ViewGroup strip = (ViewGroup) moving.getParent();
         int from = strip.indexOfChild(moving), to = from + by;
         if (to < 0 || to >= strip.getChildCount()) return;
+        View dest = strip.getChildAt(to);
+        if (dest == liveCard) return;
         ViewGroup.LayoutParams lp = moving.getLayoutParams();
         strip.removeViewAt(from);
         strip.addView(moving, to, lp);
@@ -1912,14 +1950,29 @@ public final class Home extends Activity {
     }
 
     private void stopMoving() {
-        Tile t = moving;
+        View v = moving;
         moving = null;
-        t.setMoving(false);
-        ViewGroup strip = (ViewGroup) t.getParent();
-        if (strip == null) return;
-        List<String> ids = new ArrayList<>();
-        for (int i = 0; i < strip.getChildCount(); i++) ids.add(((Tile) strip.getChildAt(i)).item.id);
-        Catalog.saveOrder(cfg, t.kind, ids);
+        if (v instanceof Tile) {
+            Tile t = (Tile) v;
+            t.setMoving(false);
+            ViewGroup strip = (ViewGroup) t.getParent();
+            if (strip == null) return;
+            List<String> ids = new ArrayList<>();
+            for (int i = 0; i < strip.getChildCount(); i++) {
+                ids.add(((Tile) strip.getChildAt(i)).item.id);
+            }
+            Catalog.saveOrder(cfg, t.kind, ids);
+        } else if (v instanceof NowCard) {
+            ((NowCard) v).setMoving(false);
+            ViewGroup strip = (ViewGroup) v.getParent();
+            if (strip == null) return;
+            List<String> names = new ArrayList<>();
+            for (int i = 0; i < strip.getChildCount(); i++) {
+                View child = strip.getChildAt(i);
+                if (child instanceof NowCard) names.add(((NowCard) child).channel.name);
+            }
+            Channels.saveFavourites(cfg, names);
+        }
         applied = cfg.version();
     }
 
