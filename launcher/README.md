@@ -77,6 +77,7 @@ you open an app. On Fire OS 7 and 8 the Settings button opens Amazon's settings 
 | All apps section | hidden (default), shown: a separate alphabetical list of every launchable app below your pinned apps. Child lock hides this section |
 | App names | on focus, always, never |
 | Clock | system, 24-hour, 12-hour |
+| Idle clock | off, after 1 minute (default), after 5 minutes: the home screen fades to a large clock. Any key brings the tiles back. It does not replace the TV's own screensaver or sleep |
 | Memory meter | hidden, shown: free memory under the date, with a bar of what is in use; amber, with "running low", when Android reports low memory or under 15% is free. It only shows the numbers: it closes and frees nothing, and needs no permission |
 | Inputs row | shown, hidden |
 | Open inputs with | Automatic, the TV's app, dumbtv home (see below) |
@@ -225,6 +226,8 @@ all_apps=off
 labels=focus
 # auto 24h 12h
 clock=auto
+# off 1m 5m
+idle=1m
 # off on
 memory=off
 # on off
@@ -430,6 +433,7 @@ Delete both to stop.
 | File | What it is |
 |---|---|
 | `src/.../Home.java` | the home screen: clock, Apps row, Inputs row, tile menu, move mode |
+| `src/.../Idle.java` | when the idle clock appears, and its slow drift |
 | `src/.../Tile.java` | one tile, drawn in a single `onDraw`: banner or icon, focus ring |
 | `src/.../Art.java` | which drawable fills a tile, and cover-crop so square banners are not stretched |
 | `src/.../Grid.java` | the grid layout |

@@ -79,6 +79,8 @@ public final class Home extends Activity {
     private ImageView wall;
     private View shade;
     private View tint;
+    private View page;
+    private IdleClock idle;
     private LinearLayout head, nowStrip, liveCard;
     private ImageView smartHome;
     private View nowBlock;
@@ -130,6 +132,7 @@ public final class Home extends Activity {
             tick();
         }
     };
+    private final Runnable showIdle = this::showIdle;
 
     private final TvInputManager.TvInputCallback inputWatch = new TvInputManager.TvInputCallback() {
         @Override
@@ -451,6 +454,7 @@ public final class Home extends Activity {
         f.addAction(Intent.ACTION_TIMEZONE_CHANGED);
         registerReceiver(time, f);
         tick();
+        bumpIdle();
         loadEpg();
         loadWeather();
     }
@@ -465,6 +469,7 @@ public final class Home extends Activity {
         super.onPause();
         resumed = false;
         hero.stop();
+        hideIdleNow();
         stopColorAnimation();
         targetColor = 0;
         unregisterReceiver(time);
@@ -511,6 +516,11 @@ public final class Home extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (idle != null && idle.shown()) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN) hideIdle();
+            return true;
+        }
+        if (e.getAction() == KeyEvent.ACTION_DOWN) bumpIdle();
         if (moving == null) return super.dispatchKeyEvent(e);
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
             switch (e.getKeyCode()) {
@@ -785,7 +795,10 @@ public final class Home extends Activity {
         root.addView(tint, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         ScrollView scroll = new PageScroll();
+        page = scroll;
         root.addView(scroll, new FrameLayout.LayoutParams(MATCH, MATCH));
+        idle = new IdleClock(this);
+        root.addView(idle, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         LinearLayout column = new LinearLayout(this) {
             @Override
@@ -1171,6 +1184,7 @@ public final class Home extends Activity {
         render(inputs);
         background();
         tick();
+        bumpIdle();
         loadEpg();
         loadWeather();
     }
@@ -1671,6 +1685,10 @@ public final class Home extends Activity {
         Locale locale = Locale.getDefault();
         date.setText(DateFormat.format(DateFormat.getBestDateTimePattern(locale, "EEEEdMMMM"), now));
         paintWeather();
+        if (idle != null && idle.shown()) {
+            idle.format(h24);
+            idle.bind(date.getText(), weatherView.getText(), weatherIcon.getDrawable());
+        }
         if (meter.getVisibility() == View.VISIBLE) {
             meter.update((android.app.ActivityManager) getSystemService(Context.ACTIVITY_SERVICE));
         }
@@ -1903,6 +1921,52 @@ public final class Home extends Activity {
         for (int i = 0; i < strip.getChildCount(); i++) ids.add(((Tile) strip.getChildAt(i)).item.id);
         Catalog.saveOrder(cfg, t.kind, ids);
         applied = cfg.version();
+    }
+
+    private void bumpIdle() {
+        ui.removeCallbacks(showIdle);
+        long wait = Idle.delayMs(cfg.get(Config.IDLE));
+        if (!resumed || wait <= 0 || moving != null) {
+            if (idle != null && idle.shown()) hideIdle();
+            return;
+        }
+        ui.postDelayed(showIdle, wait);
+    }
+
+    private void showIdle() {
+        if (!resumed || moving != null || idle == null || idle.shown()) return;
+        if (Idle.delayMs(cfg.get(Config.IDLE)) <= 0) return;
+        if (!hasWindowFocus()) {
+            bumpIdle();
+            return;
+        }
+        String mode = cfg.get(Config.CLOCK);
+        boolean h24 = "24h".equals(mode) || "auto".equals(mode) && DateFormat.is24HourFormat(this);
+        idle.format(h24);
+        idle.bind(date.getText(), weatherView.getText(), weatherIcon.getDrawable());
+        idle.appear();
+        page.animate().cancel();
+        page.animate().alpha(0f).setDuration(700).start();
+    }
+
+    private void hideIdle() {
+        if (idle == null || !idle.shown()) {
+            bumpIdle();
+            return;
+        }
+        idle.dismiss();
+        page.animate().cancel();
+        page.animate().alpha(1f).setDuration(700).start();
+        bumpIdle();
+    }
+
+    private void hideIdleNow() {
+        ui.removeCallbacks(showIdle);
+        if (idle != null) idle.hideNow();
+        if (page != null) {
+            page.animate().cancel();
+            page.setAlpha(1f);
+        }
     }
 
     private int dp(float v) {

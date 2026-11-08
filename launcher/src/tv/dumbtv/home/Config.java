@@ -79,6 +79,10 @@ final class Config {
     static final Choice CLOCK = new Choice("clock", "Clock", "auto",
             new String[] {"auto", "24h", "12h"},
             new String[] {"System", "24-hour", "12-hour"});
+    /** Large clock after the home screen has been sitting unused. */
+    static final Choice IDLE = new Choice("idle", "Idle clock", "1m",
+            new String[] {"off", "1m", "5m"},
+            new String[] {"Off", "After 1 minute", "After 5 minutes"});
     /** Free memory under the date, for TVs that are short of it. Shows only; frees nothing. */
     static final Choice MEMORY = new Choice("memory", "Memory meter", "off",
             new String[] {"off", "on"},
@@ -116,7 +120,7 @@ final class Config {
     /** The banner of hand-picked titles from {@link Library}; hidden anyway while it has none. */
     static final Choice LIBRARY = new Choice("library", "Library banner", "on",
             new String[] {"on", "off"}, new String[] {"Shown", "Hidden"});
-    static final Choice[] CHOICES = {ACCENT, TILES, LAYOUT, ORDER, ALL_APPS, LABELS, CLOCK, MEMORY, INPUTS, SWITCH, BACKGROUND, DIM, ROTATE, LOCK, TILE_STYLE, CHIPS, LIBRARY};
+    static final Choice[] CHOICES = {ACCENT, TILES, LAYOUT, ORDER, ALL_APPS, LABELS, CLOCK, IDLE, MEMORY, INPUTS, SWITCH, BACKGROUND, DIM, ROTATE, LOCK, TILE_STYLE, CHIPS, LIBRARY};
 
     /** Folder of wallpapers, next to home.conf, that Background › Image file rotates through. */
     static final String WALLPAPERS = "wallpapers";
