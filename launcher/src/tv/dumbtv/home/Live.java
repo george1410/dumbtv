@@ -14,6 +14,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -157,9 +158,21 @@ public final class Live extends Activity {
         row.setOnClickListener(x -> open(ch));
         row.setOnFocusChangeListener((view, has) -> marquee(v, has));
 
+        ImageView logo = new ImageView(this);
+        int glyph = Logos.of(ch);
+        if (glyph == 0) {
+            logo.setVisibility(View.GONE);
+        } else {
+            logo.setImageResource(glyph);
+            logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            logo.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+        LinearLayout.LayoutParams logoLp = new LinearLayout.LayoutParams(dp(44), dp(44));
+        logoLp.rightMargin = dp(14);
+        row.addView(logo, logoLp);
         TextView number = Ui.text(this, 18, Ui.MUTED, Ui.LIGHT);
         number.setText(String.valueOf(ch.number));
-        row.addView(number, new LinearLayout.LayoutParams(dp(48), WRAP));
+        row.addView(number, new LinearLayout.LayoutParams(dp(44), WRAP));
 
         LinearLayout name = column();
         v.name = single(Ui.text(this, 18, Ui.TEXT, Ui.MEDIUM));
