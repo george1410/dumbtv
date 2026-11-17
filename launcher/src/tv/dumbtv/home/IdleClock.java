@@ -3,9 +3,11 @@ package tv.dumbtv.home;
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
 import android.content.Context;
+import android.graphics.Paint;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.text.format.DateFormat;
 import android.view.Gravity;
 import android.view.View;
@@ -74,15 +76,20 @@ final class IdleClock extends FrameLayout {
         date = Ui.text(c, 16, Ui.MUTED, Ui.MEDIUM);
         date.setLetterSpacing(0.22f);
         date.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        date.setMaxLines(1);
+        date.setEllipsize(TextUtils.TruncateAt.END);
+        // MATCH the time row so a longer Wednesday does not slide the line sideways.
+        LinearLayout.LayoutParams dateLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, WRAP);
         dateLp.topMargin = Ui.dp(c, 28);
         card.addView(date, dateLp);
 
         weatherRow = new LinearLayout(c);
         weatherRow.setOrientation(LinearLayout.HORIZONTAL);
-        weatherRow.setGravity(Gravity.CENTER_VERTICAL);
+        weatherRow.setGravity(Gravity.CENTER);
         weatherRow.setVisibility(GONE);
-        LinearLayout.LayoutParams weatherLp = new LinearLayout.LayoutParams(WRAP, WRAP);
+        LinearLayout.LayoutParams weatherLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, WRAP);
         weatherLp.topMargin = Ui.dp(c, 14);
         weatherIcon = new ImageView(c);
         weatherIcon.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.FAINT));
@@ -97,12 +104,23 @@ final class IdleClock extends FrameLayout {
 
         LayoutParams lp = new LayoutParams(WRAP, WRAP, Gravity.CENTER);
         addView(card, lp);
+        // Drift by subpixels otherwise re-rasterises letter-spaced date/weather each frame
+        // and the glyphs jump independently of the clock.
+        card.setLayerType(LAYER_TYPE_HARDWARE, null);
     }
 
     private static TextView numeral(Context c) {
         TextView v = Ui.text(c, 152, Ui.TEXT, Ui.THIN);
         v.setLetterSpacing(0.02f);
         v.setGravity(Gravity.CENTER);
+        v.setFontFeatureSettings("tnum");
+        Paint paint = v.getPaint();
+        float digit = 0f;
+        for (int i = 0; i <= 9; i++) {
+            digit = Math.max(digit, paint.measureText(Integer.toString(i)));
+        }
+        // Two figures plus the 0.02em gap letter-spacing adds between them.
+        v.setMinWidth((int) Math.ceil(digit * 2 + 0.02f * paint.getTextSize()));
         return v;
     }
 
@@ -133,11 +151,14 @@ final class IdleClock extends FrameLayout {
     }
 
     void bind(CharSequence day, CharSequence weather, Drawable icon) {
-        date.setText(day == null ? "" : day.toString().toUpperCase(Locale.getDefault()));
+        String next = day == null ? "" : day.toString().toUpperCase(Locale.getDefault());
+        if (!next.contentEquals(date.getText())) date.setText(next);
         boolean has = weather != null && weather.length() > 0;
         weatherRow.setVisibility(has ? VISIBLE : GONE);
         if (has) {
-            weatherView.setText(weather);
+            if (!weather.toString().contentEquals(weatherView.getText())) {
+                weatherView.setText(weather);
+            }
             Drawable copy = icon == null || icon.getConstantState() == null
                     ? icon
                     : icon.getConstantState().newDrawable(getResources()).mutate();
@@ -186,13 +207,17 @@ final class IdleClock extends FrameLayout {
 
     private void tock() {
         Date now = new Date();
-        hours.setText(DateFormat.format(h24 ? "HH" : "hh", now));
-        minutes.setText(DateFormat.format("mm", now));
-        if (!h24) half.setText(DateFormat.format("a", now));
+        setIfChanged(hours, DateFormat.format(h24 ? "HH" : "hh", now));
+        setIfChanged(minutes, DateFormat.format("mm", now));
+        if (!h24) setIfChanged(half, DateFormat.format("a", now));
         if (shown) {
             ticks.removeCallbacks(tock);
             ticks.postDelayed(tock, PULSE_MS);
         }
+    }
+
+    private static void setIfChanged(TextView v, CharSequence next) {
+        if (!next.toString().contentEquals(v.getText())) v.setText(next);
     }
 
     private void startPulse() {
