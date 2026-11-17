@@ -72,6 +72,16 @@ final class Tile extends View {
         setContentDescription(title);
     }
 
+    /** Height of the banner, without the name slot under it. */
+    int artHeight() {
+        return cardH;
+    }
+
+    /** True when the name is always shown, so the next row must clear it. */
+    boolean reservesLabel() {
+        return labelAlways;
+    }
+
     void setMoving(boolean on) {
         moving = on;
         invalidate();

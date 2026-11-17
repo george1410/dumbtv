@@ -50,7 +50,8 @@ final class Grid extends ViewGroup {
             int avail = Math.max(0, width - getPaddingLeft() - getPaddingRight());
             int cols = columns(avail, cw);
             int rows = (n + cols - 1) / cols;
-            height += rows * ch + (rows - 1) * vGap;
+            int stride = rowStride(getChildAt(0));
+            height += (rows - 1) * stride + ch;
         }
         setMeasuredDimension(width, height);
     }
@@ -63,11 +64,25 @@ final class Grid extends ViewGroup {
         int cw = first.getMeasuredWidth(), ch = first.getMeasuredHeight();
         int avail = Math.max(0, (r - l) - getPaddingLeft() - getPaddingRight());
         int cols = columns(avail, cw);
+        int stride = rowStride(first);
         for (int i = 0; i < n; i++) {
             int col = i % cols, row = i / cols;
             int x = getPaddingLeft() + col * (cw + hGap);
-            int y = getPaddingTop() + row * (ch + vGap);
+            int y = getPaddingTop() + row * stride;
             getChildAt(i).layout(x, y, x + cw, y + ch);
         }
+    }
+
+    /**
+     * Distance from one row's top to the next. Names that only appear on focus sit in
+     * the same gap as the columns; always-on names keep a full slot so they do not
+     * cover the row below.
+     */
+    private int rowStride(View child) {
+        int box = child.getMeasuredHeight();
+        if (!(child instanceof Tile)) return box + vGap;
+        Tile tile = (Tile) child;
+        if (tile.reservesLabel()) return box + vGap;
+        return tile.artHeight() + vGap;
     }
 }

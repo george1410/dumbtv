@@ -872,17 +872,19 @@ public final class Home extends Activity {
                     boolean grid = parent instanceof Grid;
                     int cols = grid ? ((Grid) parent).columns() : 1;
 
-                    // Left and right stop at the edge of a row instead of jumping away
-                    // from it: no tile of another row takes the focus.
-                    if (direction == View.FOCUS_LEFT) {
-                        boolean edge = grid ? idx % cols == 0 : idx == 0;
-                        if (edge) return focused;
-                    }
-                    if (direction == View.FOCUS_RIGHT) {
-                        boolean edge = grid
-                                ? (idx + 1) % cols == 0 || idx == count - 1
-                                : idx == count - 1;
-                        if (edge) return focused;
+                    // Left/right wrap to the next line of this grid (or the next
+                    // section, at the first and last tile) instead of stopping.
+                    if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT) {
+                        int go = Nav.wrap(idx, count, grid ? cols : count,
+                                direction == View.FOCUS_RIGHT);
+                        if (go != Nav.DEFAULT) {
+                            if (go == Nav.SECTION) {
+                                View next = edgeTile(tile.kind,
+                                        direction == View.FOCUS_RIGHT ? 1 : -1);
+                                return next != null ? next : focused;
+                            }
+                            return parent.getChildAt(go);
+                        }
                     }
 
                     // Up from the first line of the apps row goes to the library banner.
@@ -1603,6 +1605,24 @@ public final class Home extends Activity {
 
     private Row row(String kind) {
         for (Row row : rows()) if (row.kind.equals(kind)) return row;
+        return null;
+    }
+
+    /** First tile of the next section, or last tile of the previous; null at the ends. */
+    private View edgeTile(String kind, int step) {
+        Row[] sections = rows();
+        for (int i = 0; i < sections.length; i++) {
+            if (!sections[i].kind.equals(kind)) continue;
+            for (int j = i + step; j >= 0 && j < sections.length; j += step) {
+                Row next = sections[j];
+                if (next.title.getVisibility() != View.VISIBLE) continue;
+                ViewGroup tiles = next.tiles();
+                int n = tiles.getChildCount();
+                if (n == 0) continue;
+                return tiles.getChildAt(step > 0 ? 0 : n - 1);
+            }
+            break;
+        }
         return null;
     }
 
