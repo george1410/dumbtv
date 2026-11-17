@@ -53,12 +53,12 @@ mads.amazon.com
 
 # UK catch-up ads (ITVX, Channel 4, My5). These apps still need Freewheel
 # (fwmrm.net) or the player refuses to start; do not add that host.
-# Conviva, Amplitude and *.content.itv.com stay off this list: they are not
-# ad CDNs and blocking them has broken playback for people.
+# Conviva, Amplitude, *.content.itv.com and cpt.itv.com stay off this list:
+# they are not ad CDNs. Blocking cpt.itv.com crashes the Fire TV ITVX app
+# (ConnectException to 0.0.0.0:443 on launch).
 tom.itv.com
 toots.itv.com
 toots-a.akamaihd.net
-cpt.itv.com
 cdn.http.anno.channel4.com
 webstats.channel4.com
 monitor.channel4.com

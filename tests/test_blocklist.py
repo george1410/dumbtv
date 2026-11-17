@@ -98,6 +98,7 @@ class BlocklistTest(unittest.TestCase):
         self.assertNotIn("softwareupdates.amazon.com", hosts)
         self.assertNotIn("amzdigital-a.akamaihd.net", hosts)
         self.assertIn("tom.itv.com", hosts)
+        self.assertNotIn("cpt.itv.com", hosts)
         blocked = lib("expected_blocked", PRIME="1", ALEXA="1", UPDATES="1")
         self.assertNotIn("softwareupdates.amazon.com", blocked)
 
